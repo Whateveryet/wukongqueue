@@ -1,7 +1,5 @@
-import sys
 from typing import Union, AnyStr
 
-sys.path.append('../../')
 from py_utils.wukongqueue.commu_proto import *
 
 __all__ = ['WukongPkg', 'Empty', 'Full', 'WuKongQueueClient']

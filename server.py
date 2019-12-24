@@ -3,13 +3,11 @@ A small and convenient cross process Queue service based on TCP protocol.
 """
 
 import socket
-import sys
 import threading
 from queue import Queue, Full
 from types import FunctionType
 from typing import Union
 
-sys.path.append('../../')
 from py_utils.wukongqueue.commu_proto import *
 
 
