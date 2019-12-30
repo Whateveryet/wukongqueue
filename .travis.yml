@@ -4,7 +4,7 @@ language: python
 
 include:
     - name: "Python 3.5.0 on Linux"
-      python: 3.6           # this works for Linux but is ignored on macOS or Windows
+      python: 3.5           # this works for Linux but is ignored on macOS or Windows
     - name: "Python 3.5.0 on macOS"
       os: osx
       osx_image: xcode11.2  # Python 3.7.4 running on macOS 10.14.4
@@ -17,7 +17,7 @@ include:
       env: PATH=/c/Python35:/c/Python35/Scripts:$PATH
 
 python:
-  - "3.6"
+  - "3.5"
 
 install:
   - pip install coverage
