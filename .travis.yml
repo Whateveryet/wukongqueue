@@ -29,6 +29,7 @@ script:
 branches:
   only:
     - master
+    - dev
 
 notifications:
 #  email: false  # turn off notification
