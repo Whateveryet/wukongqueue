@@ -29,3 +29,9 @@ script:
 branches:
   only:
     - master
+
+notifications:
+#  email: false  # turn off notification
+  slack:
+    on_success: change # default: change
+    on_failure: never # default: always

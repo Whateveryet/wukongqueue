@@ -22,7 +22,7 @@ class WuKongQueueClient:
     def __init__(
         self,
         host="127.0.0.1",
-        port=918,
+        port=9918,
         *,
         auto_reconnect=False,
         pre_connect=False,
