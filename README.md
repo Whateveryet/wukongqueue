@@ -39,7 +39,7 @@ client.close()
 ```
 
 Currently, the get and put methods on the server and client only support bytes
-And strings, but in the end, they still communicate between processes in bytes.
+and strings, but in the end, they still communicate between processes in bytes.
 
 #### Use `with` statement
 ```python

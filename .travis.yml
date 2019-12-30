@@ -17,7 +17,7 @@ include:
       env: PATH=/c/Python35:/c/Python35/Scripts:$PATH
 
 python:
-  - "3.5"
+  - "3.6"
 
 install:
   - pip install coverage
