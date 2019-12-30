@@ -3,6 +3,8 @@ A small and convenient cross process FIFO queue service based on TCP protocol.
 
 ---
 [![codecov](https://codecov.io/gh/chaseSpace/WukongQueue/branch/master/graph/badge.svg)](https://codecov.io/gh/chaseSpace/WukongQueue)
+[![PyPI version](https://badge.fury.io/py/wukongqueue.svg)](https://badge.fury.io/py/wukongqueue)
+
 ## Features
 * Fast (directly based on tcp)
 * Multi Clients from different processes
