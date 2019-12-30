@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
-import time, sys
+import time, sys, os
 from unittest import TestCase, main
 
+print(os.path.abspath('.'))
 sys.path.append("../")
 from wukongqueue.wukongqueue import *
 
