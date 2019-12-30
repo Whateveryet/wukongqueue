@@ -8,7 +8,7 @@ from wukongqueue.wukongqueue import *
 
 max_size = 2
 host = "127.0.0.1"
-port = 918
+port = 9918
 
 
 def new_svr(host=host, port=port):
