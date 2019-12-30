@@ -58,10 +58,10 @@ class WuKongQueueClient:
         assert type(item) in [
             bytes,
             str,
-        ], f"Unsupported type {type(item)}"
+        ], "Unsupported type %s" % type(item)
         assert isinstance(
             block, bool
-        ), f"wrong block arg type:{type(block)}"
+        ), "wrong block arg type:%s" % type(block)
         if timeout is not None:
             assert isinstance(timeout, int), "invalid timeout"
 
@@ -79,10 +79,13 @@ class WuKongQueueClient:
         wukong_pkg = self._tcp_client.read()
         if not wukong_pkg.is_valid():
             raise Disconnected(
-                f"WuKongQueue Svr-addr:{self.addr} is disconnected"
+                "WuKongQueue Svr-addr:(%s:%s) is disconnected"
+                % self.addr
             )
         elif wukong_pkg.raw_data == QUEUE_FULL:
-            raise Full(f"WuKongQueue Svr-addr:{self.addr} is full")
+            raise Full(
+                "WuKongQueue Svr-addr:(%s:%s) is full" % self.addr
+            )
         # wukong_pkg.raw_data == QUEUE_OK if put success!
 
     def get(
@@ -101,11 +104,11 @@ class WuKongQueueClient:
 
         assert isinstance(
             block, bool
-        ), f"wrong block arg type:{type(block)}"
+        ), "wrong block arg type:%s" % type(block)
         if convert_method is not None:
-            assert callable(
-                convert_method
-            ), f"not a callable obj {convert_method}"
+            assert callable(convert_method), (
+                "not a callable obj:%s" % convert_method
+            )
         if timeout is not None:
             assert isinstance(timeout, int) is True, "invalid timeout"
 
@@ -120,11 +123,14 @@ class WuKongQueueClient:
         wukong_pkg = self._tcp_client.read()
         if not wukong_pkg.is_valid():
             raise Disconnected(
-                f"WuKongQueue Svr-addr:{self.addr} is disconnected"
+                "WuKongQueue Svr-addr:(%s:%s) is disconnected"
+                % self.addr
             )
 
         if wukong_pkg.raw_data == QUEUE_EMPTY:
-            raise Empty(f"WuKongQueue Svr-addr:{self.addr} is empty")
+            raise Empty(
+                "WuKongQueue Svr-addr:(%s:%s) is empty" % self.addr
+            )
 
         ret = unwrap_queue_msg(wukong_pkg.raw_data)
         if convert_method:
@@ -139,7 +145,8 @@ class WuKongQueueClient:
             if self._silence_err:
                 return False
             raise Disconnected(
-                f"WuKongQueue Svr-addr:{self.addr} is disconnected"
+                "WuKongQueue Svr-addr:(%s:%s) is disconnected"
+                % self.addr
             )
         return wukong_pkg.raw_data == QUEUE_FULL
 
@@ -151,7 +158,8 @@ class WuKongQueueClient:
             if self._silence_err:
                 return True
             raise Disconnected(
-                f"WuKongQueue Svr-addr:{self.addr} is disconnected"
+                "WuKongQueue Svr-addr:(%s:%s) is disconnected"
+                % self.addr
             )
         return wukong_pkg.raw_data == QUEUE_EMPTY
 
@@ -170,7 +178,8 @@ class WuKongQueueClient:
             if self._silence_err:
                 return 0
             raise Disconnected(
-                f"WuKongQueue Svr-addr:{self.addr} is disconnected"
+                "WuKongQueue Svr-addr:(%s:%s) is disconnected"
+                % self.addr
             )
         ret = unwrap_queue_msg(wukong_pkg.raw_data)
         return int(ret["data"])
@@ -182,7 +191,8 @@ class WuKongQueueClient:
             if self._silence_err:
                 return 0
             raise Disconnected(
-                f"WuKongQueue Svr-addr:{self.addr} is disconnected"
+                "WuKongQueue Svr-addr:(%s:%s) is disconnected"
+                % self.addr
             )
         ret = unwrap_queue_msg(wukong_pkg.raw_data)
         return int(ret["data"])
@@ -201,7 +211,8 @@ class WuKongQueueClient:
             if self._silence_err:
                 return False
             raise Disconnected(
-                f"WuKongQueue Svr-addr:{self.addr} is disconnected"
+                "WuKongQueue Svr-addr:(%s:%s) is disconnected"
+                % self.addr
             )
         return wukong_pkg.raw_data == QUEUE_OK
 
@@ -213,7 +224,8 @@ class WuKongQueueClient:
             if self._silence_err:
                 return 0
             raise Disconnected(
-                f"WuKongQueue Svr-addr:{self.addr} is disconnected"
+                "WuKongQueue Svr-addr:(%s:%s) is disconnected"
+                % self.addr
             )
         ret = unwrap_queue_msg(wukong_pkg.raw_data)
         return int(ret["data"])
@@ -227,11 +239,11 @@ class WuKongQueueClient:
             if not self.connected():
                 try:
                     self._tcp_client = TcpClient(*self.addr)
-                    _logger(self).info(f"reconnect success!")
+                    _logger(self).info("reconnect success!")
                 except Exception as e:
                     _logger(self).warning(
-                        f"_check_if_need_recover fail: "
-                        f"{e.__class__, e.args}"
+                        "_check_if_need_recover fail: %s,%s"
+                        % (e.__class__, e.args)
                     )
 
     def __enter__(self):

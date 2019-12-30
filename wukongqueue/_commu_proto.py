@@ -86,7 +86,7 @@ def read_wukong_data(conn: socket.socket) -> WukongPkg:
         try:
             data: bytes = conn.recv(MAX_BYTES)
         except Exception as e:
-            return WukongPkg(err=f"{e.__class__, e.args}")
+            return WukongPkg(err="%s,%s" % (e.__class__, e.args))
         if data == b"":
             return WukongPkg(closed=True)
 
@@ -121,7 +121,7 @@ def write_wukong_data(
             return True
         except Exception as e:
             nonlocal err
-            err = f"{e.__class__, e.args}"
+            err = "%s,%s" % (e.__class__, e.args)
             return False
 
     while sent_index < _bytes_msg_len:
@@ -234,8 +234,9 @@ def _check_all_queue_cmds():
             if i != tried_cmds:
                 if all_cmds[i].startswith(check_cmd):
                     raise ValueError(
-                        f"{all_cmds[i]} is equivalent to {check_cmd}, "
-                        f"please alter cmd's variable name definition"
+                        "%s is equivalent to %s, "
+                        "please alter cmd's variable name definition"
+                        % (all_cmds[i], check_cmd)
                     )
         tried_cmds += 1
 

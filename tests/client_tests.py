@@ -1,23 +1,22 @@
 # -*- coding: utf-8 -*-
-import time,sys
+import time, sys
 from unittest import TestCase, main
-sys.path.append('../')
+
+sys.path.append("../")
 from wukongqueue.wukongqueue import *
 
 max_size = 2
-host = '127.0.0.1'
+host = "127.0.0.1"
 port = 918
 
 
 def new_svr(host=host, port=port):
-    return WuKongQueue(host=host,
-                       port=port,
-                       max_conns=10,
-                       max_size=max_size)
+    return WuKongQueue(
+        host=host, port=port, max_conns=10, max_size=max_size
+    )
 
 
 class ClientTests(TestCase):
-
     def test_basic_method(self):
         """
         tested-api:
@@ -28,16 +27,17 @@ class ClientTests(TestCase):
         svr = new_svr()
         with svr.helper():
             client = WuKongQueueClient(host=host, port=port)
-            put_str = 'str' * 100
-            put_bytes = b'byte' * 100
+            put_str = "str" * 100
+            put_bytes = b"byte" * 100
             self.assertIs(client.full(), False)
             self.assertIs(client.empty(), True)
 
             client.put(put_str)
             client.put(put_bytes)
 
-            self.assertRaises(Full, client.put,
-                              'str will raise exception', timeout=1)
+            self.assertRaises(
+                Full, client.put, "str will raise exception", timeout=1
+            )
 
             self.assertIs(client.full(), True)
             self.assertIs(client.empty(), False)
@@ -72,11 +72,13 @@ class ClientTests(TestCase):
             for i in range(10):
                 c[i].close()
                 time.sleep(
-                    0.5)  # We must consider the necessary network delay
+                    0.5
+                )  # We must consider the necessary network delay
                 if i < 9:
                     # print(c[i+1].connected_clients(), len(c)-i-1)
-                    self.assertEqual(c[i + 1].connected_clients(),
-                                     len(c) - i - 1)
+                    self.assertEqual(
+                        c[i + 1].connected_clients(), len(c) - i - 1
+                    )
 
     def test_reset_and_qsize(self):
         """
@@ -95,9 +97,9 @@ class ClientTests(TestCase):
                 self.assertEqual(client.realtime_maxsize(), 5)
                 client.reset(2)
                 self.assertEqual(client.realtime_maxsize(), 2)
-                client.put('1')
+                client.put("1")
                 self.assertEqual(client.realtime_qsize(), 1)
-                client.put('1')
+                client.put("1")
                 self.assertEqual(client.realtime_qsize(), 2)
                 self.assertEqual(client.full(), True)
 
@@ -114,14 +116,15 @@ class ClientTests(TestCase):
             client = WuKongQueueClient(host=host, port=port)
             with client.helper():
                 client.reset(max_size=1)
-                client.put(block=True, timeout=1, item='1')
+                client.put(block=True, timeout=1, item="1")
                 # wait for 3 secs, then raises <Full> exception
-                self.assertRaises(Full, client.put, item='1', timeout=3)
+                self.assertRaises(Full, client.put, item="1", timeout=3)
 
-                self.assertEqual(client.get(), b'1')
+                self.assertEqual(client.get(), b"1")
                 # wait for 3 secs, then raises <Empty> exception
-                self.assertRaises(Empty, client.get, block=True,
-                                  timeout=3)
+                self.assertRaises(
+                    Empty, client.get, block=True, timeout=3
+                )
 
     def test_run_with_multithreading(self):
         global port, max_size
@@ -129,7 +132,7 @@ class ClientTests(TestCase):
         max_size = 30
         svr = new_svr(port=port)
 
-        put_strs = [f'{i}' for i in range(max_size)]
+        put_strs = [str(i) for i in range(max_size)]
         Sum = sum(list(range(max_size)))
 
         _tmp_sum = 0
@@ -149,7 +152,7 @@ class ClientTests(TestCase):
             clients = 10
             for i in range(clients):
                 client = WuKongQueueClient(host=host, port=port)
-                new_thread(_thread, {'the_client': client})
+                new_thread(_thread, {"the_client": client})
 
             for str_num in put_strs:
                 svr.put(str_num, block=False)
@@ -158,18 +161,21 @@ class ClientTests(TestCase):
             self.assertEqual(Sum, _tmp_sum)
 
     def test_silence_err(self):
-        client = WuKongQueueClient(host=host, port=port,
-                                   silence_err=True,
-                                   pre_connect=True,
-                                   auto_reconnect=True)
+        client = WuKongQueueClient(
+            host=host,
+            port=port,
+            silence_err=True,
+            pre_connect=True,
+            auto_reconnect=True,
+        )
         with client.helper():
-            self.assertRaises(Disconnected, client.put, item='1')
+            self.assertRaises(Disconnected, client.put, item="1")
             self.assertRaises(Disconnected, client.get)
-            self.assertIs(client.connected(),False)
+            self.assertIs(client.connected(), False)
             self.assertEqual(client.realtime_qsize(), 0)
             self.assertEqual(client.realtime_maxsize(), 0)
             self.assertIs(client.full() and client.empty(), False)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 import sys
 from unittest import TestCase, main
-sys.path.append('../')
+
+sys.path.append("../")
 from wukongqueue.wukongqueue import *
 
 max_size = 2
-host = '127.0.0.1'
+host = "127.0.0.1"
 port = 918
 
 
@@ -23,13 +24,13 @@ class ServerTests(TestCase):
         """
         svr = new_svr()
         with svr.helper():
-            put_str = 'str' * 100
-            put_bytes = b'byte' * 100
+            put_str = "str" * 100
+            put_bytes = b"byte" * 100
 
             svr.put(put_str)
             svr.put(put_bytes)
 
-            self.assertRaises(Full, svr.put, item='1', block=False)
+            self.assertRaises(Full, svr.put, item="1", block=False)
             self.assertIs(svr.full(), True)
             self.assertIs(svr.empty(), False)
             self.assertEqual(svr.get(), put_str.encode())
@@ -52,15 +53,15 @@ class ServerTests(TestCase):
         svr = new_svr(port=port)
         with svr.helper():
             self.assertEqual(svr.qsize(), 0)
-            svr.put('1')
-            svr.put('1')
+            svr.put("1")
+            svr.put("1")
             self.assertEqual(svr.qsize(), 2)
-            self.assertRaises(Full, svr.put, item='1', block=False)
+            self.assertRaises(Full, svr.put, item="1", block=False)
             self.assertEqual(svr.max_size, 2)
             svr.reset(3)
             self.assertEqual(svr.max_size, 3)
             for i in range(3):
-                svr.put('1')
+                svr.put("1")
             self.assertIs(svr.full(), True)
 
             client = WuKongQueueClient(host=host, port=port)
@@ -70,5 +71,5 @@ class ServerTests(TestCase):
             client.close()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

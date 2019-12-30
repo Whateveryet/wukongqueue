@@ -84,9 +84,8 @@ class WuKongQueue:
         self._conns.clear()
 
     def __repr__(self):
-        return (
-            f"<WuKongQueue listened {self.addr}, "
-            f"closed:{self.closed}>"
+        return "<WuKongQueue listened {}, closed:{}>".format(
+            self.addr, self.closed
         )
 
     def __enter__(self):
@@ -123,7 +122,7 @@ class WuKongQueue:
         assert type(item) in [
             bytes,
             str,
-        ], f"Unsupported type {type(item)}"
+        ], "Unsupported type %s" % type(item)
         if type(item) is str:
             item = item.encode(encoding=encoding)
         self._q.put(item, block, timeout)
