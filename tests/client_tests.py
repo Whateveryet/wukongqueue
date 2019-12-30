@@ -2,8 +2,8 @@
 import time, sys, os
 from unittest import TestCase, main
 
-print(os.path.abspath('.'))
 sys.path.append("../")
+
 from wukongqueue.wukongqueue import *
 
 max_size = 2

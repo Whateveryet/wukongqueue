@@ -84,7 +84,7 @@ def read_wukong_data(conn: socket.socket) -> WukongPkg:
 
     while True:
         try:
-            data: bytes = conn.recv(MAX_BYTES)
+            data = conn.recv(MAX_BYTES)
         except Exception as e:
             return WukongPkg(err="%s,%s" % (e.__class__, e.args))
         if data == b"":
@@ -213,7 +213,7 @@ def unwrap_queue_msg(data: bytes):
         for k, v in ret.items()
     }
     if ret["args"]:
-        ret["args"] = json.loads(ret["args"])
+        ret["args"] = json.loads(ret["args"].decode())
     else:
         ret["args"] = {}
     return ret

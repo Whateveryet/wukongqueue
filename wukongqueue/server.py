@@ -7,7 +7,7 @@ import socket
 import threading
 from queue import Queue, Full, Empty
 from types import FunctionType
-from typing import Union, Set
+from typing import Union
 
 from ._commu_proto import *
 from .utils import _helper, new_thread
@@ -44,7 +44,7 @@ class WuKongQueue:
         self.addr = (host, port)
         self.clients = 0
         self._lock = threading.Lock()
-        self._conns: Set[socket.socket] = set()
+        self._conns = set()
         self._q = Queue(max_size)
         self.max_size = max_size
         self.closed = True

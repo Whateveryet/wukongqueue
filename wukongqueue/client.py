@@ -26,7 +26,7 @@ class WuKongQueueClient:
         *,
         auto_reconnect=False,
         pre_connect=False,
-        silence_err=False,
+        silence_err=False
     ):
         """
         :param host: ...
