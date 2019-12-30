@@ -104,9 +104,8 @@ def read_wukong_data(conn: socket.socket) -> WukongPkg:
     return ret
 
 
-def write_wukong_data(
-    conn: socket.socket, msg: WukongPkg
-) -> (bool, str):
+def write_wukong_data(conn: socket.socket, msg: WukongPkg) \
+        -> (bool, str):
     """NOTE: Sending an empty string is allowed"""
     _bytes_msg = (
         msg.raw_data.replace(delimiter, delimiter_escape) + delimiter
