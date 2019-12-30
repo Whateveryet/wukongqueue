@@ -11,7 +11,7 @@ with open(path.join(DIR, "README.md")) as f:
 setup(
     name="wukongqueue",
     packages=find_packages(),
-    version="0.0.1",
+    version="0.0.2",
     author="chaseSpace",
     author_email="randomlilei@gmail.com",
     description="A small and convenient cross process FIFO queue "
