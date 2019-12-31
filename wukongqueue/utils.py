@@ -39,9 +39,13 @@ def singleton(f):
 
 
 @singleton
-def logger(self, level) -> logging.Logger:
+def get_logger(self, level) -> logging.Logger:
     name = ".".join([self.__module__, self.__class__.__name__])
-    FORMAT = "%(name)s:%(levelname)s:%(message)s"
-    logging.basicConfig(format=FORMAT, level=level)
     logger = logging.getLogger(name)
+    logging.basicConfig(
+        level=level,
+        format="%(asctime)s %(name)s %(levelname)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
     return logger
