@@ -2,6 +2,7 @@
 import time, sys, os
 from unittest import TestCase, main
 
+print(os.path.abspath('.'))
 sys.path.append("../")
 
 from wukongqueue.wukongqueue import *
@@ -162,6 +163,8 @@ class ClientTests(TestCase):
             self.assertEqual(Sum, _tmp_sum)
 
     def test_silence_err(self):
+        global port
+        port += 1
         client = WuKongQueueClient(
             host=host,
             port=port,
