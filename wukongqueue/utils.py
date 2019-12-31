@@ -26,21 +26,26 @@ def new_thread(f, kw={}):
 def singleton(f):
     _inst = {}
 
-    def w(self: object):
+    def w(*args):
+        self = args[0]
         key = ".".join([self.__module__, self.__class__.__name__])
         inst = _inst.get(key)
         if inst:
             return inst
-        _inst[key] = f(self)
+        _inst[key] = f(*args)
         return _inst[key]
 
     return w
 
 
 @singleton
-def _logger(self) -> logging.Logger:
+def get_logger(self, level) -> logging.Logger:
     name = ".".join([self.__module__, self.__class__.__name__])
-    FORMAT = "%(name)s:%(levelname)s:%(message)s"
-    logging.basicConfig(format=FORMAT, level=logging.DEBUG)
     logger = logging.getLogger(name)
+    logging.basicConfig(
+        level=level,
+        format="%(asctime)s %(name)s %(levelname)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
     return logger

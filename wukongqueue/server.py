@@ -30,15 +30,7 @@ class _wk_svr_helper:
 
 
 class WuKongQueue:
-    def __init__(
-        self,
-        host="127.0.0.1",
-        port=918,
-        *,
-        name="",
-        max_conns=0,
-        max_size=0
-    ):
+    def __init__(self, host, port, *, name="", max_conns=0, max_size=0):
         self.name = name
         self._tcp_svr = TcpSvr(host, port, max_conns)
         self.addr = (host, port)
@@ -67,8 +59,7 @@ class WuKongQueue:
             with self._lock:
                 self.clients += 1
             new_thread(
-                self.process_conn,
-                kw={"client_addr": addr, "conn": conn},
+                self.process_conn, kw={"client_addr": addr, "conn": conn},
             )
 
     def close(self):
@@ -98,10 +89,7 @@ class WuKongQueue:
         return _helper(self)
 
     def get(
-        self,
-        block=True,
-        timeout=None,
-        convert_method: FunctionType = None,
+        self, block=True, timeout=None, convert_method: FunctionType = None,
     ) -> bytes:
         """
         :param block: see also stdlib `queue.Queue.get` docstring
@@ -119,10 +107,7 @@ class WuKongQueue:
         timeout=None,
         encoding="utf8",
     ):
-        assert type(item) in [
-            bytes,
-            str,
-        ], "Unsupported type %s" % type(item)
+        assert type(item) in [bytes, str,], "Unsupported type %s" % type(item)
         if type(item) is str:
             item = item.encode(encoding=encoding)
         self._q.put(item, block, timeout)
@@ -183,9 +168,7 @@ class WuKongQueue:
                         write_wukong_data(
                             conn,
                             WukongPkg(
-                                wrap_queue_msg(
-                                    queue_cmd=QUEUE_DATA, data=item
-                                )
+                                wrap_queue_msg(queue_cmd=QUEUE_DATA, data=item)
                             ),
                         )
                     continue
@@ -194,9 +177,7 @@ class WuKongQueue:
                 if cmd == QUEUE_PUT:
                     try:
                         self.put(
-                            data,
-                            block=args["block"],
-                            timeout=args["timeout"],
+                            data, block=args["block"], timeout=args["timeout"],
                         )
                     except Full:
                         write_wukong_data(conn, WukongPkg(QUEUE_FULL))

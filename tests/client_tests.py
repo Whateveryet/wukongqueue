@@ -1,14 +1,16 @@
 # -*- coding: utf-8 -*-
-import time, sys, os
+import time, sys, logging
 from unittest import TestCase, main
 
 sys.path.append("../")
-
-from wukongqueue.wukongqueue import *
+try:
+    from wukongqueue.wukongqueue import *
+except ImportError:
+    from wukongqueue import *
 
 max_size = 2
 host = "127.0.0.1"
-port = 918
+port = 9918
 
 
 def new_svr(host=host, port=port):
@@ -162,12 +164,16 @@ class ClientTests(TestCase):
             self.assertEqual(Sum, _tmp_sum)
 
     def test_silence_err(self):
+        time.sleep(1)
+        global port
+        port += 1
         client = WuKongQueueClient(
             host=host,
             port=port,
             silence_err=True,
             pre_connect=True,
             auto_reconnect=True,
+            log_level=logging.DEBUG
         )
         with client.helper():
             self.assertRaises(Disconnected, client.put, item="1")
