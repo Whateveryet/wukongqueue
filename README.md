@@ -2,6 +2,7 @@
 A small and convenient cross process FIFO queue service based on TCP protocol.
 
 ---
+[![Build Status](https://travis-ci.com/chaseSpace/wukongqueue.svg?branch=master)](https://travis-ci.com/chaseSpace/wukongqueue)
 [![codecov](https://codecov.io/gh/chaseSpace/WukongQueue/branch/master/graph/badge.svg)](https://codecov.io/gh/chaseSpace/WukongQueue)
 [![PyPI version](https://badge.fury.io/py/wukongqueue.svg)](https://badge.fury.io/py/wukongqueue)
 
@@ -73,7 +74,7 @@ support apis below:
 * [`task_done()`](https://docs.python.org/3.6/library/queue.html#queue.Queue.task_done)
 * [`join()`](https://docs.python.org/3.6/library/queue.html#queue.Queue.join)
 
-## [Release log](https://github.com/chaseSpace/wukongqueue/RELEASELOG.md)
+## [Release log](https://github.com/chaseSpace/wukongqueue/blob/master/RELEASELOG.md)
 
 ## License
 [MIT](https://github.com/chaseSpace/WukongQueue/blob/master/LICENSE)

@@ -2,7 +2,7 @@
 
 from os import path
 from setuptools import setup, find_packages
-from wukongqueue.wukongqueue import __version__
+from wukongqueue import __version__
 DIR = path.dirname(path.abspath(__file__))
 
 with open(path.join(DIR, "README.md")) as f:
