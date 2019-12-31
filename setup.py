@@ -2,7 +2,7 @@
 
 from os import path
 from setuptools import setup, find_packages
-
+from wukongqueue.wukongqueue import __version__
 DIR = path.dirname(path.abspath(__file__))
 
 with open(path.join(DIR, "README.md")) as f:
@@ -11,7 +11,7 @@ with open(path.join(DIR, "README.md")) as f:
 setup(
     name="wukongqueue",
     packages=find_packages(),
-    version="0.0.3",
+    version=__version__,
     author="chaseSpace",
     author_email="randomlilei@gmail.com",
     description="A small and convenient cross process FIFO queue "

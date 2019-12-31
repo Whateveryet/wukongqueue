@@ -30,15 +30,7 @@ class _wk_svr_helper:
 
 
 class WuKongQueue:
-    def __init__(
-        self,
-        host="127.0.0.1",
-        port=918,
-        *,
-        name="",
-        max_conns=0,
-        max_size=0
-    ):
+    def __init__(self, host, port, *, name="", max_conns=0, max_size=0):
         self.name = name
         self._tcp_svr = TcpSvr(host, port, max_conns)
         self.addr = (host, port)

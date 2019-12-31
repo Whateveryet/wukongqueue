@@ -21,8 +21,8 @@ class Disconnected(Exception):
 class WuKongQueueClient:
     def __init__(
         self,
-        host="127.0.0.1",
-        port=9918,
+        host,
+        port,
         *,
         auto_reconnect=False,
         pre_connect=False,
