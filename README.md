@@ -73,7 +73,7 @@ support apis below:
 * [`task_done()`](https://docs.python.org/3.6/library/queue.html#queue.Queue.task_done)
 * [`join()`](https://docs.python.org/3.6/library/queue.html#queue.Queue.join)
 
-## [Release log](https://github.com/chaseSpace/wukongqueue/RELEASELOG.md)
+## [Release log](https://github.com/chaseSpace/wukongqueue/blob/master/RELEASELOG.md)
 
 ## License
 [MIT](https://github.com/chaseSpace/WukongQueue/blob/master/LICENSE)
