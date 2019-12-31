@@ -1,9 +1,9 @@
 from queue import Empty, Full
 from types import FunctionType
 from typing import Union
-
+import logging
 from ._commu_proto import *
-from .utils import _helper, _logger
+from .utils import _helper, logger
 
 __all__ = [
     "WukongPkg",
@@ -26,7 +26,8 @@ class WuKongQueueClient:
         *,
         auto_reconnect=False,
         pre_connect=False,
-        silence_err=False
+        silence_err=False,
+        **kwargs
     ):
         """
         :param host: ...
@@ -40,6 +41,11 @@ class WuKongQueueClient:
         :param silence_err: when suddenly disconnected,api raises
         exception <Disconnected> by default, return default value if
         silence_err is True, except for `get` and `put`
+
+        A number of optional keyword arguments may be specified, which
+        can alter the default behaviour.
+
+        log_level: see also usage of stdlib logging.DEBUG/INFO/WARNING..
         """
         self.addr = (host, port)
         self._tcp_client = TcpClient(
@@ -47,6 +53,9 @@ class WuKongQueueClient:
         )
         self.auto_reconnect = bool(auto_reconnect)
         self._silence_err = bool(silence_err)
+
+        log_level = kwargs.pop("log_level", logging.INFO)
+        self._logger = logger(self, log_level)
 
     def put(
         self,
@@ -139,6 +148,8 @@ class WuKongQueueClient:
 
     def full(self) -> bool:
         """Whether the queue is full"""
+        self._check_if_need_reconnect()
+
         self._tcp_client.write(QUEUE_QUERY_STATUS)
         wukong_pkg = self._tcp_client.read()
         if not wukong_pkg.is_valid():
@@ -152,6 +163,8 @@ class WuKongQueueClient:
 
     def empty(self) -> bool:
         """Whether the queue is empty"""
+        self._check_if_need_reconnect()
+
         self._tcp_client.write(QUEUE_QUERY_STATUS)
         wukong_pkg = self._tcp_client.read()
         if not wukong_pkg.is_valid():
@@ -172,6 +185,7 @@ class WuKongQueueClient:
         return wukong_pkg.raw_data == QUEUE_PONG
 
     def realtime_qsize(self) -> int:
+        self._check_if_need_reconnect()
         self._tcp_client.write(QUEUE_SIZE)
         wukong_pkg = self._tcp_client.read()
         if not wukong_pkg.is_valid():
@@ -185,6 +199,7 @@ class WuKongQueueClient:
         return int(ret["data"])
 
     def realtime_maxsize(self) -> int:
+        self._check_if_need_reconnect()
         self._tcp_client.write(QUEUE_MAXSIZE)
         wukong_pkg = self._tcp_client.read()
         if not wukong_pkg.is_valid():
@@ -201,6 +216,7 @@ class WuKongQueueClient:
         """Clear queue server and create a new queue
         server with the given max_size
         """
+        self._check_if_need_reconnect()
         self._tcp_client.write(
             wrap_queue_msg(
                 queue_cmd=QUEUE_RESET, args={"max_size": max_size}
@@ -218,6 +234,7 @@ class WuKongQueueClient:
 
     def connected_clients(self) -> int:
         """Number of clients connected to the server"""
+        self._check_if_need_reconnect()
         self._tcp_client.write(QUEUE_CLIENTS)
         wukong_pkg = self._tcp_client.read()
         if not wukong_pkg.is_valid():
@@ -239,9 +256,9 @@ class WuKongQueueClient:
             if not self.connected():
                 try:
                     self._tcp_client = TcpClient(*self.addr)
-                    _logger(self).info("reconnect success!")
+                    self._logger.info("reconnect success!")
                 except Exception as e:
-                    _logger(self).warning(
+                    self._logger.warning(
                         "_check_if_need_recover fail: %s,%s"
                         % (e.__class__, e.args)
                     )

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import time, sys, os
+import time, sys, logging
 from unittest import TestCase, main
 
 sys.path.append("../")
@@ -170,6 +170,7 @@ class ClientTests(TestCase):
             silence_err=True,
             pre_connect=True,
             auto_reconnect=True,
+            log_level=logging.CRITICAL
         )
         with client.helper():
             self.assertRaises(Disconnected, client.put, item="1")
