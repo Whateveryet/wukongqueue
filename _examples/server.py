@@ -3,7 +3,7 @@
 
 import time
 
-from wukongqueue.wukongqueue import WuKongQueue
+from wukongqueue import WuKongQueue
 
 host = '127.0.0.1'
 port = 6666

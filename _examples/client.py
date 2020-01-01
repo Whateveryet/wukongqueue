@@ -2,7 +2,7 @@
 
 import time
 
-from wukongqueue.wukongqueue import WuKongQueueClient, Full
+from wukongqueue import WuKongQueueClient, Full
 
 host = '127.0.0.1'
 port = 6666
