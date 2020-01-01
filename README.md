@@ -1,5 +1,5 @@
 ## wukongqueue
-A small and convenient cross process FIFO queue service based on TCP protocol.
+A lightweight and convenient cross process FIFO queue service based on TCP protocol.
 
 ---
 [![Build Status](https://travis-ci.com/chaseSpace/wukongqueue.svg?branch=master)](https://travis-ci.com/chaseSpace/wukongqueue)
