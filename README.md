@@ -69,6 +69,8 @@ with client.helper():
 ```
 **The server's usage of with is exactly the same.**
 
+[more examples](https://github.com/chaseSpace/wukongqueue/blob/master/_examples)
+
 ## TODO
 support apis below:
 * [`task_done()`](https://docs.python.org/3.6/library/queue.html#queue.Queue.task_done)
