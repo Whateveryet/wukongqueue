@@ -3,6 +3,7 @@ A small and convenient cross process FIFO queue service based on
 TCP protocol.
 """
 
+import logging
 import socket
 import threading
 from queue import Queue, Full, Empty
@@ -10,8 +11,7 @@ from types import FunctionType
 from typing import Union
 
 from ._commu_proto import *
-from .utils import _helper, new_thread
-
+from .utils import _helper, new_thread, get_logger
 
 __all__ = ["WuKongQueue", "new_thread", "Full", "Empty"]
 
@@ -33,16 +33,22 @@ class _wk_svr_helper:
 
 
 class WuKongQueue:
-    def __init__(self, host, port, *, name="", max_conns=0, max_size=0):
+    def __init__(self, host, port, *, name="", max_size=0,
+                 **kwargs):
         self.name = name
-        self._tcp_svr = TcpSvr(host, port, max_conns)
         self.addr = (host, port)
+
+        max_conns = kwargs.pop("max_conns", 0)
+        self._tcp_svr = TcpSvr(host, port, max_conns)
+
         self.clients = 0
         self._lock = threading.Lock()
         self._conns = set()
         self._q = Queue(max_size)
         self.max_size = max_size
         self.closed = True
+        log_level = kwargs.pop("log_level", logging.DEBUG)
+        self._logger = get_logger(self, log_level)
         self.run()
 
     def run(self):
@@ -54,11 +60,8 @@ class WuKongQueue:
     def _run(self):
         self.closed = False
         while True:
-            try:
-                conn, addr = self._tcp_svr.accept()
-                self._conns.add(conn)
-            except OSError:
-                break
+            conn, addr = self._tcp_svr.accept()
+            self._conns.add(conn)
             with self._lock:
                 self.clients += 1
             new_thread(
@@ -92,7 +95,7 @@ class WuKongQueue:
         return _helper(self)
 
     def get(
-        self, block=True, timeout=None, convert_method: FunctionType = None,
+            self, block=True, timeout=None, convert_method: FunctionType = None,
     ) -> bytes:
         """
         :param block: see also stdlib `queue.Queue.get` docstring
@@ -104,13 +107,13 @@ class WuKongQueue:
         return convert_method(item) if convert_method else item
 
     def put(
-        self,
-        item: Union[bytes, str],
-        block=True,
-        timeout=None,
-        encoding="utf8",
+            self,
+            item: Union[bytes, str],
+            block=True,
+            timeout=None,
+            encoding="utf8",
     ):
-        assert type(item) in [bytes, str,], "Unsupported type %s" % type(item)
+        assert type(item) in [bytes, str, ], "Unsupported type %s" % type(item)
         if type(item) is str:
             item = item.encode(encoding=encoding)
         self._q.put(item, block, timeout)
