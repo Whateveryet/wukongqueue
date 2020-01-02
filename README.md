@@ -10,6 +10,7 @@ A lightweight and convenient cross process FIFO queue service based on TCP proto
 * Fast (directly based on tcp)
 * Multi-producer and Multi-consumer from different threads/processes
 * Easy to use, APIs' usage like stdlib [`queue`](https://docs.python.org/3.6/library/queue.html)
+* Allow to set authentication key for connection to server
 
 ## Requirements
 * Python3.5+ (need [type hints](https://www.python.org/dev/peps/pep-0484/))
