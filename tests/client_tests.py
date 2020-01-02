@@ -32,6 +32,8 @@ class ClientTests(TestCase):
             empty
             connected
         """
+        global port
+        port += 1
         svr = new_svr(port=port)
         with svr.helper():
             client = WuKongQueueClient(host=host, port=port)
@@ -173,7 +175,6 @@ class ClientTests(TestCase):
             self.assertEqual(Sum, _tmp_sum)
 
     def test_silence_err(self):
-        time.sleep(1)
         global port
         port += 1
         client = WuKongQueueClient(
