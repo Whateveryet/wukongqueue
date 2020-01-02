@@ -4,6 +4,7 @@ TCP protocol.
 """
 
 import logging
+
 import socket
 import threading
 from queue import Queue, Full, Empty
@@ -33,13 +34,28 @@ class _wk_svr_helper:
 
 
 class WuKongQueue:
-    def __init__(self, host, port, *, name="", max_size=0,
-                 **kwargs):
+    def __init__(self, host, port, *, name="", max_size=0, **kwargs):
+        """
+        :param host: host for queue server listen
+        :param port: port for queue server listen
+        :param name: queue str identity, just make sense for human
+        :param max_size: queue max size
+
+        A number of optional keyword arguments may be specified, which
+        can alter the default behaviour.
+
+        max_conns: max number of clients
+
+        log_level: pass with stdlib logging.DEBUG/INFO/WARNING.., to control
+        the WuKongQueue's logging level that output to stderr
+        """
         self.name = name
         self.addr = (host, port)
 
         max_conns = kwargs.pop("max_conns", 0)
         self._tcp_svr = TcpSvr(host, port, max_conns)
+        log_level = kwargs.pop("log_level", logging.DEBUG)
+        self._logger = get_logger(self, log_level)
 
         self.clients = 0
         self._lock = threading.Lock()
@@ -47,8 +63,6 @@ class WuKongQueue:
         self._q = Queue(max_size)
         self.max_size = max_size
         self.closed = True
-        log_level = kwargs.pop("log_level", logging.DEBUG)
-        self._logger = get_logger(self, log_level)
         self.run()
 
     def run(self):
@@ -65,9 +79,8 @@ class WuKongQueue:
                 self._conns.add(conn)
             except OSError:
                 self._logger.debug(
-                    "<WuKongQueue listened {} was closed>".format(
-                        self.addr
-                    ))
+                    "<WuKongQueue listened {} was closed>".format(self.addr)
+                )
                 return
             with self._lock:
                 self.clients += 1
@@ -102,7 +115,7 @@ class WuKongQueue:
         return _helper(self)
 
     def get(
-            self, block=True, timeout=None, convert_method: FunctionType = None,
+        self, block=True, timeout=None, convert_method: FunctionType = None,
     ) -> bytes:
         """
         :param block: see also stdlib `queue.Queue.get` docstring
@@ -114,13 +127,13 @@ class WuKongQueue:
         return convert_method(item) if convert_method else item
 
     def put(
-            self,
-            item: Union[bytes, str],
-            block=True,
-            timeout=None,
-            encoding="utf8",
+        self,
+        item: Union[bytes, str],
+        block=True,
+        timeout=None,
+        encoding="utf8",
     ):
-        assert type(item) in [bytes, str, ], "Unsupported type %s" % type(item)
+        assert type(item) in [bytes, str,], "Unsupported type %s" % type(item)
         if type(item) is str:
             item = item.encode(encoding=encoding)
         self._q.put(item, block, timeout)

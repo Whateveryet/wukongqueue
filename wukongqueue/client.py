@@ -45,7 +45,8 @@ class WuKongQueueClient:
         A number of optional keyword arguments may be specified, which
         can alter the default behaviour.
 
-        log_level: see also usage of stdlib logging.DEBUG/INFO/WARNING..
+        log_level: pass with stdlib logging.DEBUG/INFO/WARNING.., to control
+        the WuKongQueue's logging level that output to stderr
         """
         self.server_addr = (host, port)
         self._tcp_client = TcpClient(*self.server_addr, pre_connect=pre_connect)
