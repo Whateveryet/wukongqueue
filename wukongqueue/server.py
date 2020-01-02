@@ -3,6 +3,8 @@ A small and convenient cross process FIFO queue service based on
 TCP protocol.
 """
 
+import logging
+
 import socket
 import threading
 from queue import Queue, Full, Empty
@@ -10,8 +12,7 @@ from types import FunctionType
 from typing import Union
 
 from ._commu_proto import *
-from .utils import _helper, new_thread
-
+from .utils import _helper, new_thread, get_logger
 
 __all__ = ["WuKongQueue", "new_thread", "Full", "Empty"]
 
@@ -33,10 +34,29 @@ class _wk_svr_helper:
 
 
 class WuKongQueue:
-    def __init__(self, host, port, *, name="", max_conns=0, max_size=0):
+    def __init__(self, host, port, *, name="", max_size=0, **kwargs):
+        """
+        :param host: host for queue server listen
+        :param port: port for queue server listen
+        :param name: queue str identity, just make sense for human
+        :param max_size: queue max size
+
+        A number of optional keyword arguments may be specified, which
+        can alter the default behaviour.
+
+        max_conns: max number of clients
+
+        log_level: pass with stdlib logging.DEBUG/INFO/WARNING.., to control
+        the WuKongQueue's logging level that output to stderr
+        """
         self.name = name
-        self._tcp_svr = TcpSvr(host, port, max_conns)
         self.addr = (host, port)
+
+        max_conns = kwargs.pop("max_conns", 0)
+        self._tcp_svr = TcpSvr(host, port, max_conns)
+        log_level = kwargs.pop("log_level", logging.DEBUG)
+        self._logger = get_logger(self, log_level)
+
         self.clients = 0
         self._lock = threading.Lock()
         self._conns = set()
@@ -58,7 +78,10 @@ class WuKongQueue:
                 conn, addr = self._tcp_svr.accept()
                 self._conns.add(conn)
             except OSError:
-                break
+                self._logger.debug(
+                    "<WuKongQueue listened {} was closed>".format(self.addr)
+                )
+                return
             with self._lock:
                 self.clients += 1
             new_thread(
