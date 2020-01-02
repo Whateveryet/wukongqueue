@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
 
+import hashlib
 import logging
+
 import threading
 
 
-class _helper:
+class helper:
     """used by WuKongQueueClient and WuKongQueue"""
 
     def __init__(self, inst):
@@ -24,6 +26,7 @@ def new_thread(f, kw={}):
 
 
 def singleton(f):
+    """used only by get_logger()"""
     _inst = {}
 
     def w(*args):
@@ -49,3 +52,9 @@ def get_logger(self, level) -> logging.Logger:
     )
 
     return logger
+
+
+def md5(msg: bytes):
+    d = hashlib.md5()
+    d.update(msg)
+    return d.hexdigest()

@@ -1,20 +1,24 @@
-import logging
 from queue import Empty, Full
 from types import FunctionType
 from typing import Union
 
 from ._commu_proto import *
-from .utils import _helper, get_logger
+from .utils import *
 
 __all__ = [
     "WuKongQueueClient",
     "Disconnected",
     "Empty",
     "Full",
+    "AuthenticationFail",
 ]
 
 
 class Disconnected(Exception):
+    pass
+
+
+class AuthenticationFail(Exception):
     pass
 
 
@@ -38,15 +42,18 @@ class WuKongQueueClient:
         when it fails to initialize connection, if `pre_conn` is true,
         you can success to initialize client although server is not
         ready yet
-        :param silence_err: when suddenly disconnected,api raises
-        exception <Disconnected> by default, return default value if
-        silence_err is True, except for `get` and `put`
+        :param silence_err:when suddenly disconnected,api raises
+        exception <Disconnected> by default; if silence_err is True,
+        return default value , except for `get` and `put`
 
         A number of optional keyword arguments may be specified, which
         can alter the default behaviour.
 
         log_level: pass with stdlib logging.DEBUG/INFO/WARNING.., to control
         the WuKongQueue's logging level that output to stderr
+
+        auth_key: str used for server side authentication, it will be encrypted
+        for transmission over the network
         """
         self.server_addr = (host, port)
         self._tcp_client = TcpClient(*self.server_addr, pre_connect=pre_connect)
@@ -55,6 +62,18 @@ class WuKongQueueClient:
 
         log_level = kwargs.pop("log_level", logging.DEBUG)
         self._logger = get_logger(self, log_level)
+
+        auth_key = kwargs.pop("auth_key", None)
+        if auth_key is not None:
+            self._auth_key = md5(auth_key.encode("utf8"))
+        else:
+            self._auth_key = None
+        if self._do_authenticate() is False:
+            self._tcp_client.close()
+            raise AuthenticationFail(
+                "WuKongQueue Svr-addr:(%s:%s) "
+                "authentication failed" % self.server_addr
+            )
 
     def put(
         self,
@@ -254,6 +273,25 @@ class WuKongQueueClient:
             )
             return False
 
+    def _do_authenticate(self) -> bool:
+        if self._auth_key is None:
+            return True
+
+        self._tcp_client.write(
+            wrap_queue_msg(
+                queue_cmd=QUEUE_AUTH_KEY, args={"auth_key": self._auth_key}
+            )
+        )
+        wukong_pkg = self._tcp_client.read()
+        if not wukong_pkg.is_valid():
+            if self._silence_err:
+                return False
+            raise Disconnected(
+                "WuKongQueue Svr-addr:(%s:%s) is disconnected"
+                % self.server_addr
+            )
+        return wukong_pkg.raw_data == QUEUE_OK
+
     def __enter__(self):
         return self
 
@@ -261,4 +299,4 @@ class WuKongQueueClient:
         self.close()
 
     def helper(self):
-        return _helper(self)
+        return helper(self)

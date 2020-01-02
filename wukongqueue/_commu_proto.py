@@ -27,6 +27,7 @@ __all__ = [
     "QUEUE_MAXSIZE",
     "QUEUE_RESET",
     "QUEUE_CLIENTS",
+    "QUEUE_AUTH_KEY",
 ]
 
 
@@ -252,5 +253,6 @@ QUEUE_SIZE = b"SIZE"
 QUEUE_MAXSIZE = b"MAXSIZE"
 QUEUE_RESET = b"RESET"
 QUEUE_CLIENTS = b"CLIENTS"
+QUEUE_AUTH_KEY = b"AUTH"
 
 _check_all_queue_cmds()
