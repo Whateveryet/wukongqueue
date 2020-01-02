@@ -1,5 +1,9 @@
 ## Release log
 
+#### v0.0.5a1
+* optimize tcp-conn accept method
+* add argument log_level to `WuKongQueue`
+
 #### v0.0.4
 * optimize reconnect logical
 * optimize logging
