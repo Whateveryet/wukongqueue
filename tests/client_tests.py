@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-from unittest import TestCase, main
-
 import logging
 import sys
+from unittest import TestCase, main
+
 import time
 
 sys.path.append("../")
@@ -16,9 +16,11 @@ host = "127.0.0.1"
 port = 9918
 
 
-def new_svr(host=host, port=port):
+def new_svr(host=host, port=port, auth=None):
     return WuKongQueue(
-        host=host, port=port, max_conns=10, max_size=max_size, log_level=logging.INFO
+        host=host, port=port, max_conns=10, max_size=max_size,
+        log_level=logging.INFO,
+        auth_key=auth
     )
 
 
@@ -30,7 +32,7 @@ class ClientTests(TestCase):
             empty
             connected
         """
-        svr = new_svr()
+        svr = new_svr(port=port)
         with svr.helper():
             client = WuKongQueueClient(host=host, port=port)
             put_str = "str" * 100
@@ -189,6 +191,28 @@ class ClientTests(TestCase):
             self.assertEqual(client.realtime_qsize(), 0)
             self.assertEqual(client.realtime_maxsize(), 0)
             self.assertIs(client.full() and client.empty(), False)
+
+    def test_authenticate(self):
+        global port
+        port += 1
+        svr = new_svr(port=port)
+        with svr.helper():
+            # auth_key is None, don't need authenticate
+            with WuKongQueueClient(host=host, port=port):
+                pass
+
+        auth = '123'
+        svr = new_svr(port=port, auth=auth)
+        with svr.helper():
+            with WuKongQueueClient(host=host, port=port):
+                pass
+
+            try:
+                with WuKongQueueClient(host=host, port=port,
+                                       auth_key=auth + '1'):
+                    pass
+            except AuthenticationFail:
+                pass
 
 
 if __name__ == "__main__":
