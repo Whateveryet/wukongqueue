@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
-import time, sys, logging
 from unittest import TestCase, main
+
+import logging
+import sys
+import time
 
 sys.path.append("../")
 try:
@@ -15,7 +18,7 @@ port = 9918
 
 def new_svr(host=host, port=port):
     return WuKongQueue(
-        host=host, port=port, max_conns=10, max_size=max_size
+        host=host, port=port, max_conns=10, max_size=max_size, log_level=logging.INFO
     )
 
 
@@ -64,20 +67,24 @@ class ClientTests(TestCase):
         """
         global port
         port += 1
+
         svr = new_svr(port=port)
         with svr.helper():
+            # exit()
             c = []
-            for i in range(10):
+
+            loop = 10
+            for i in range(loop):
                 client = WuKongQueueClient(host=host, port=port)
                 c.append(client)
                 # print(client.connected_clients(),i+1)
                 self.assertEqual(client.connected_clients(), i + 1)
-            for i in range(10):
+            for i in range(loop):
                 c[i].close()
                 time.sleep(
                     0.5
                 )  # We must consider the necessary network delay
-                if i < 9:
+                if i < loop - 1:
                     # print(c[i+1].connected_clients(), len(c)-i-1)
                     self.assertEqual(
                         c[i + 1].connected_clients(), len(c) - i - 1

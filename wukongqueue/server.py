@@ -60,8 +60,15 @@ class WuKongQueue:
     def _run(self):
         self.closed = False
         while True:
-            conn, addr = self._tcp_svr.accept()
-            self._conns.add(conn)
+            try:
+                conn, addr = self._tcp_svr.accept()
+                self._conns.add(conn)
+            except OSError:
+                self._logger.debug(
+                    "<WuKongQueue listened {} was closed>".format(
+                        self.addr
+                    ))
+                return
             with self._lock:
                 self.clients += 1
             new_thread(

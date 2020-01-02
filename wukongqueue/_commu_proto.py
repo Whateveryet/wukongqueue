@@ -156,9 +156,9 @@ class TcpSvr(TcpConn):
         super().__init__()
         self.skt.bind((host, port))
         self.max_conns = max_conns
+        self.skt.listen(self.max_conns)
 
     def accept(self):
-        self.skt.listen(self.max_conns)
         return self.skt.accept()
 
 
