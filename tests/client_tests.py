@@ -12,7 +12,7 @@ except ImportError:
 
 max_size = 2
 host = "127.0.0.1"
-port = 9918
+port = 9999
 
 
 def new_svr(host=host, port=port, auth=None, log_level=logging.DEBUG):
