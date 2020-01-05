@@ -1,8 +1,9 @@
 # Protocol of communication
 
 import json
-import socket
 from copy import deepcopy
+
+import socket
 
 __all__ = [
     "read_wukong_data",
@@ -12,6 +13,10 @@ __all__ = [
     "TcpClient",
     "wrap_queue_msg",
     "unwrap_queue_msg",
+    "QUEUE_HI",
+    "QUEUE_AUTH_KEY",
+    "QUEUE_NEED_AUTH",
+    "QUEUE_AUTH_FAIL",
     "QUEUE_FULL",
     "QUEUE_GET",
     "QUEUE_PUT",
@@ -27,7 +32,7 @@ __all__ = [
     "QUEUE_MAXSIZE",
     "QUEUE_RESET",
     "QUEUE_CLIENTS",
-    "QUEUE_AUTH_KEY",
+
 ]
 
 
@@ -45,7 +50,7 @@ class WukongPkg:
     """customized communication msg package"""
 
     def __init__(
-        self, msg: bytes = b"", err=None, closed=False, encoding="utf8"
+            self, msg: bytes = b"", err=None, closed=False, encoding="utf8"
     ):
         """
         :param msg: raw bytes
@@ -57,7 +62,7 @@ class WukongPkg:
         self.raw_data = msg
         self.err = err
         self.encoding = encoding
-        self._is_skt_closed = closed
+        self.closed = closed
 
     def __repr__(self):
         return self.raw_data.decode(encoding=self.encoding)
@@ -66,7 +71,7 @@ class WukongPkg:
         return len(self.raw_data) > 0
 
     def is_valid(self) -> bool:
-        return any([self._is_skt_closed, self.err]) is False
+        return any([self.closed, self.err]) is False
 
 
 # max read/write to 4KB
@@ -88,6 +93,7 @@ def read_wukong_data(conn: socket.socket) -> WukongPkg:
             data = conn.recv(MAX_BYTES)
         except Exception as e:
             return WukongPkg(err="%s,%s" % (e.__class__, e.args))
+        # if data is empty byte,that represents the conn was closed by peer.
         if data == b"":
             return WukongPkg(closed=True)
 
@@ -98,7 +104,7 @@ def read_wukong_data(conn: socket.socket) -> WukongPkg:
 
         buffer.append(data[:bye_index])
         if len(data) < bye_index + delimiter_len:
-            _STREAM_BUFFER.append(data[bye_index + delimiter_len :])
+            _STREAM_BUFFER.append(data[bye_index + delimiter_len:])
         break
     msg = b"".join(buffer).replace(delimiter_escape, delimiter)
     ret = WukongPkg(msg)
@@ -107,6 +113,8 @@ def read_wukong_data(conn: socket.socket) -> WukongPkg:
 
 def write_wukong_data(conn: socket.socket, msg: WukongPkg) -> (bool, str):
     """NOTE: Sending an empty string is allowed"""
+
+    # `+delimiter` ensure never send a empty byte to peer
     _bytes_msg = msg.raw_data.replace(delimiter, delimiter_escape) + delimiter
     _bytes_msg_len = len(_bytes_msg)
     sent_index = -1
@@ -123,7 +131,7 @@ def write_wukong_data(conn: socket.socket, msg: WukongPkg) -> (bool, str):
 
     while sent_index < _bytes_msg_len:
         sent_index = 0 if sent_index == -1 else sent_index
-        will_send_data = _bytes_msg[sent_index : sent_index + MAX_BYTES]
+        will_send_data = _bytes_msg[sent_index: sent_index + MAX_BYTES]
         if not _send_msg(will_send_data):
             return False, err
         sent_index += MAX_BYTES
@@ -148,23 +156,30 @@ class TcpConn:
 
 
 class TcpSvr(TcpConn):
-    def __init__(self, host, port, max_conns=0):
+    def __init__(self, host, port):
         """
         :param host: ...
         :param port: ...
-        :param max_conns: maximum connects
         """
         super().__init__()
-        self.skt.bind((host, port))
-        self.max_conns = max_conns
-        self.skt.listen(self.max_conns)
+        try:
+            self.skt.bind((host, port))
+        except OSError as e:
+            self.skt.close()
+            raise e
+
+        # the backlog parameter is commonly set a large value to
+        # handle High concurrent connection requests, It's enough
+        # to set 0 here.
+        # https://tangentsoft.net/wskfaq/advanced.html#backlog
+        self.skt.listen(0)
 
     def accept(self):
         return self.skt.accept()
 
 
 class TcpClient(TcpConn):
-    def __init__(self, host, port, pre_connect=False):
+    def __init__(self, host, port):
         """
         :param host: ...
         :param port: ...
@@ -172,12 +187,11 @@ class TcpClient(TcpConn):
         a real connection when you want to communicate
         """
         super().__init__()
-        if pre_connect is False:
-            try:
-                self.skt.connect((host, port))
-            except Exception as e:
-                self.skt.close()
-                raise e
+        try:
+            self.skt.connect((host, port))
+        except Exception as e:
+            self.skt.close()
+            raise e
 
 
 queue_args_splits = b"-"
@@ -238,6 +252,10 @@ def _check_all_queue_cmds():
         tried_cmds += 1
 
 
+QUEUE_HI = b'hi'
+QUEUE_AUTH_KEY = b"AUTH_KEY"
+QUEUE_NEED_AUTH = b'NEED_AUTH'
+QUEUE_AUTH_FAIL = b'AUTH_FAIL'
 QUEUE_PUT = b"PUT"
 QUEUE_GET = b"GET"
 QUEUE_DATA = b"DATA"
@@ -253,6 +271,5 @@ QUEUE_SIZE = b"SIZE"
 QUEUE_MAXSIZE = b"MAXSIZE"
 QUEUE_RESET = b"RESET"
 QUEUE_CLIENTS = b"CLIENTS"
-QUEUE_AUTH_KEY = b"AUTH"
 
 _check_all_queue_cmds()
