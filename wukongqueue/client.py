@@ -12,7 +12,7 @@ __all__ = [
     "Full",
     "AuthenticationFail",
     "ClientsFull",
-    "ConnectionFail"
+    "ConnectionFail",
 ]
 
 
@@ -34,14 +34,14 @@ class AuthenticationFail(Exception):
 
 class WuKongQueueClient:
     def __init__(
-            self,
-            host,
-            port,
-            *,
-            auto_reconnect=False,
-            pre_connect=False,
-            silence_err=False,
-            **kwargs
+        self,
+        host,
+        port,
+        *,
+        auto_reconnect=False,
+        pre_connect=False,
+        silence_err=False,
+        **kwargs
     ):
         """
         :param host: ...
@@ -103,8 +103,9 @@ class WuKongQueueClient:
                         "authentication failed" % str(self.server_addr)
                     )
                 # connect success!
-                self._logger.info("successfully connected to %s!" %
-                                  str(self.server_addr))
+                self._logger.info(
+                    "successfully connected to %s!" % str(self.server_addr)
+                )
                 return True
             else:
                 self._tcp_client.close()
@@ -112,8 +113,8 @@ class WuKongQueueClient:
 
         except Exception as e:
             self._logger.warning(
-                "failed to connect to %s, err:%s,%s" % (
-                    str(self.server_addr), e.__class__, e.args)
+                "failed to connect to %s, err:%s,%s"
+                % (str(self.server_addr), e.__class__, e.args)
             )
             # raises the exception only on init
             if self._silence_err:
@@ -122,13 +123,13 @@ class WuKongQueueClient:
             return False
 
     def put(
-            self,
-            item: Union[str, bytes],
-            block=True,
-            timeout=None,
-            encoding="utf8",
+        self,
+        item: Union[str, bytes],
+        block=True,
+        timeout=None,
+        encoding="utf8",
     ):
-        assert type(item) in [bytes, str, ], "Unsupported type %s" % type(item)
+        assert type(item) in [bytes, str,], "Unsupported type %s" % type(item)
         assert isinstance(block, bool), "wrong block arg type:%s" % type(block)
         if timeout is not None:
             assert isinstance(timeout, int), "invalid timeout"
@@ -161,7 +162,7 @@ class WuKongQueueClient:
         # wukong_pkg.raw_data == QUEUE_OK if put success!
 
     def get(
-            self, block=True, timeout=None, convert_method: FunctionType = None,
+        self, block=True, timeout=None, convert_method: FunctionType = None,
     ):
         """
         :param convert_method: function
@@ -174,7 +175,7 @@ class WuKongQueueClient:
         assert isinstance(block, bool), "wrong block arg type:%s" % type(block)
         if convert_method is not None:
             assert callable(convert_method), (
-                    "not a callable obj:%s" % convert_method
+                "not a callable obj:%s" % convert_method
             )
         if timeout is not None:
             assert isinstance(timeout, int) is True, "invalid timeout"
@@ -256,7 +257,6 @@ class WuKongQueueClient:
         NOTE:this api do reconnect when `auto_connect` is True, then return
         outcome of reconnection
         """
-
         if self._tcp_client is not None:
             self._tcp_client.write(QUEUE_PING)
             wukong_pkg = self._tcp_client.read()

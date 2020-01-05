@@ -32,7 +32,6 @@ __all__ = [
     "QUEUE_MAXSIZE",
     "QUEUE_RESET",
     "QUEUE_CLIENTS",
-
 ]
 
 
@@ -50,7 +49,7 @@ class WukongPkg:
     """customized communication msg package"""
 
     def __init__(
-            self, msg: bytes = b"", err=None, closed=False, encoding="utf8"
+        self, msg: bytes = b"", err=None, closed=False, encoding="utf8"
     ):
         """
         :param msg: raw bytes
@@ -104,7 +103,7 @@ def read_wukong_data(conn: socket.socket) -> WukongPkg:
 
         buffer.append(data[:bye_index])
         if len(data) < bye_index + delimiter_len:
-            _STREAM_BUFFER.append(data[bye_index + delimiter_len:])
+            _STREAM_BUFFER.append(data[bye_index + delimiter_len :])
         break
     msg = b"".join(buffer).replace(delimiter_escape, delimiter)
     ret = WukongPkg(msg)
@@ -131,7 +130,7 @@ def write_wukong_data(conn: socket.socket, msg: WukongPkg) -> (bool, str):
 
     while sent_index < _bytes_msg_len:
         sent_index = 0 if sent_index == -1 else sent_index
-        will_send_data = _bytes_msg[sent_index: sent_index + MAX_BYTES]
+        will_send_data = _bytes_msg[sent_index : sent_index + MAX_BYTES]
         if not _send_msg(will_send_data):
             return False, err
         sent_index += MAX_BYTES
@@ -252,10 +251,10 @@ def _check_all_queue_cmds():
         tried_cmds += 1
 
 
-QUEUE_HI = b'hi'
+QUEUE_HI = b"hi"
 QUEUE_AUTH_KEY = b"AUTH_KEY"
-QUEUE_NEED_AUTH = b'NEED_AUTH'
-QUEUE_AUTH_FAIL = b'AUTH_FAIL'
+QUEUE_NEED_AUTH = b"NEED_AUTH"
+QUEUE_AUTH_FAIL = b"AUTH_FAIL"
 QUEUE_PUT = b"PUT"
 QUEUE_GET = b"GET"
 QUEUE_DATA = b"DATA"

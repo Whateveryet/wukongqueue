@@ -46,8 +46,9 @@ def get_logger(self, level) -> logging.Logger:
     name = ".".join([self.__module__, self.__class__.__name__])
     logger = logging.getLogger(name)
     formatter = logging.Formatter(
-        '%(asctime)s %(name)s %(levelname)s: %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S')
+        "%(asctime)s %(name)s %(levelname)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
     h = logging.StreamHandler(stream=sys.stderr)
     h.setLevel(level)
     h.setFormatter(formatter)

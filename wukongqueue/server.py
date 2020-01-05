@@ -101,7 +101,8 @@ class WuKongQueue:
             client_stat = _ClientStatistic(client_addr=addr, conn=conn)
             with self._lock:
                 if self.max_clients > 0 and self.max_clients == len(
-                        self.clients_stats.keys()):
+                    self.clients_stats.keys()
+                ):
                     # client will receive a empty byte, that represents
                     # clients fulled!
                     conn.close()
@@ -111,8 +112,7 @@ class WuKongQueue:
             ok, err = write_wukong_data(conn, WukongPkg(QUEUE_HI))
             if ok:
 
-                new_thread(self.process_conn,
-                           kw={"client_stat": client_stat})
+                new_thread(self.process_conn, kw={"client_stat": client_stat})
                 self._logger.info("new client from %s" % str(addr))
             else:
                 # please report this problem with your python version and
@@ -152,7 +152,7 @@ class WuKongQueue:
         return helper(self)
 
     def get(
-            self, block=True, timeout=None, convert_method: FunctionType = None,
+        self, block=True, timeout=None, convert_method: FunctionType = None,
     ) -> bytes:
         """
         :param block: see also stdlib `queue.Queue.get` docstring
@@ -164,13 +164,13 @@ class WuKongQueue:
         return convert_method(item) if convert_method else item
 
     def put(
-            self,
-            item: Union[bytes, str],
-            block=True,
-            timeout=None,
-            encoding="utf8",
+        self,
+        item: Union[bytes, str],
+        block=True,
+        timeout=None,
+        encoding="utf8",
     ):
-        assert type(item) in [bytes, str, ], "Unsupported type %s" % type(item)
+        assert type(item) in [bytes, str,], "Unsupported type %s" % type(item)
         if type(item) is str:
             item = item.encode(encoding=encoding)
         self._q.put(item, block, timeout)
@@ -315,7 +315,8 @@ class WuKongQueue:
                             wrap_queue_msg(
                                 queue_cmd=QUEUE_DATA,
                                 data=str(
-                                    len(self.clients_stats.keys())).encode()
+                                    len(self.clients_stats.keys())
+                                ).encode(),
                             )
                         ),
                     )
