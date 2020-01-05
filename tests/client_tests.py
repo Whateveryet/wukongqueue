@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
 import logging
 import sys
-from unittest import TestCase, main
-
 import time
+from unittest import TestCase, main
 
 sys.path.append("../")
 try:
@@ -16,10 +15,10 @@ host = "127.0.0.1"
 port = 9918
 
 
-def new_svr(host=host, port=port, auth=None):
+def new_svr(host=host, port=port, auth=None, log_level=logging.DEBUG):
     return WuKongQueue(
-        host=host, port=port, max_conns=10, max_size=max_size,
-        log_level=logging.INFO,
+        host=host, port=port, max_size=max_size,
+        log_level=log_level,
         auth_key=auth
     )
 
@@ -34,7 +33,7 @@ class ClientTests(TestCase):
         """
         global port
         port += 1
-        svr = new_svr(port=port)
+        svr = new_svr(port=port, log_level=logging.FATAL)
         with svr.helper():
             client = WuKongQueueClient(host=host, port=port)
             put_str = "str" * 100
@@ -72,7 +71,7 @@ class ClientTests(TestCase):
         global port
         port += 1
 
-        svr = new_svr(port=port)
+        svr = new_svr(port=port, log_level=logging.FATAL)
         with svr.helper():
             # exit()
             c = []
@@ -103,7 +102,7 @@ class ClientTests(TestCase):
         """
         global port
         port += 1
-        svr = new_svr(port=port)
+        svr = new_svr(port=port, log_level=logging.FATAL)
         with svr.helper():
             client = WuKongQueueClient(host=host, port=port)
             with client.helper():
@@ -125,7 +124,7 @@ class ClientTests(TestCase):
         """
         global port
         port += 1
-        svr = new_svr(port=port)
+        svr = new_svr(port=port, log_level=logging.FATAL)
         with svr.helper():
             client = WuKongQueueClient(host=host, port=port)
             with client.helper():
@@ -144,7 +143,7 @@ class ClientTests(TestCase):
         global port, max_size
         port += 1
         max_size = 30
-        svr = new_svr(port=port)
+        svr = new_svr(port=port, log_level=logging.FATAL)
 
         put_strs = [str(i) for i in range(max_size)]
         Sum = sum(list(range(max_size)))
@@ -183,7 +182,7 @@ class ClientTests(TestCase):
             silence_err=True,
             pre_connect=True,
             auto_reconnect=True,
-            log_level=logging.DEBUG
+            log_level=logging.FATAL
         )
         with client.helper():
             self.assertRaises(Disconnected, client.put, item="1")
@@ -196,7 +195,7 @@ class ClientTests(TestCase):
     def test_authenticate(self):
         global port
         port += 1
-        svr = new_svr(port=port)
+        svr = new_svr(port=port, log_level=logging.INFO)
         with svr.helper():
             # auth_key is None, don't need authenticate
             with WuKongQueueClient(host=host, port=port):
@@ -204,7 +203,7 @@ class ClientTests(TestCase):
 
         port += 1
         auth = '123'
-        svr = new_svr(port=port, auth=auth)
+        svr = new_svr(port=port, auth=auth, log_level=logging.INFO)
         with svr.helper():
             with WuKongQueueClient(host=host, port=port):
                 pass
@@ -215,6 +214,16 @@ class ClientTests(TestCase):
                     pass
             except AuthenticationFail:
                 pass
+
+    def test_auto_conn(self):
+        global port
+        port += 1
+        with WuKongQueueClient(host=host, port=port, pre_connect=True,
+                               auto_reconnect=True)as client:
+            self.assertRaises(Disconnected, client.put, item='1')
+            svr = new_svr(port=port, log_level=logging.INFO)
+            with svr.helper():
+                self.assertIs(client.connected(), True)
 
 
 if __name__ == "__main__":

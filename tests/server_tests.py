@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import logging
 import sys
 from unittest import TestCase, main
 
@@ -13,8 +14,9 @@ host = "127.0.0.1"
 port = 9918
 
 
-def new_svr(host=host, port=port):
-    return WuKongQueue(host=host, port=port, max_size=max_size)
+def new_svr(host=host, port=port, max_clients=0, log_level=logging.DEBUG):
+    return WuKongQueue(host=host, port=port, max_size=max_size,
+                       max_clients=max_clients, log_level=log_level)
 
 
 class ServerTests(TestCase):
@@ -25,7 +27,7 @@ class ServerTests(TestCase):
             empty
             close
         """
-        svr = new_svr()
+        svr = new_svr(log_level=logging.WARNING)
         with svr.helper():
             put_str = "str" * 100
             put_bytes = b"byte" * 100
@@ -53,7 +55,7 @@ class ServerTests(TestCase):
         """
         global port
         port += 1
-        svr = new_svr(port=port)
+        svr = new_svr(port=port, log_level=logging.WARNING)
         with svr.helper():
             self.assertEqual(svr.qsize(), 0)
             svr.put("1")
@@ -72,6 +74,25 @@ class ServerTests(TestCase):
             svr.close()
             self.assertIs(client.connected(), False)
             client.close()
+
+    def test_port_conflict(self):
+        global port
+        port += 1
+        with new_svr(port=port, log_level=logging.WARNING):
+            pass
+            # self.assertRaises(OSError, new_svr, port=port)
+
+    def test_max_clients(self):
+        global port
+        port += 1
+        svr = new_svr(port=port, max_clients=1, log_level=logging.DEBUG)
+        with svr.helper():
+            with WuKongQueueClient(host=host, port=port):
+                try:
+                    with WuKongQueueClient(host=host, port=port):
+                        pass
+                except ClientsFull:
+                    pass
 
 
 if __name__ == "__main__":
