@@ -49,7 +49,7 @@ class WukongPkg:
     """customized communication msg package"""
 
     def __init__(
-        self, msg: bytes = b"", err=None, closed=False, encoding="utf8"
+            self, msg: bytes = b"", err=None, closed=False, encoding="utf8"
     ):
         """
         :param msg: raw bytes
@@ -103,7 +103,7 @@ def read_wukong_data(conn: socket.socket) -> WukongPkg:
 
         buffer.append(data[:bye_index])
         if len(data) < bye_index + delimiter_len:
-            _STREAM_BUFFER.append(data[bye_index + delimiter_len :])
+            _STREAM_BUFFER.append(data[bye_index + delimiter_len:])
         break
     msg = b"".join(buffer).replace(delimiter_escape, delimiter)
     ret = WukongPkg(msg)
@@ -130,7 +130,7 @@ def write_wukong_data(conn: socket.socket, msg: WukongPkg) -> (bool, str):
 
     while sent_index < _bytes_msg_len:
         sent_index = 0 if sent_index == -1 else sent_index
-        will_send_data = _bytes_msg[sent_index : sent_index + MAX_BYTES]
+        will_send_data = _bytes_msg[sent_index: sent_index + MAX_BYTES]
         if not _send_msg(will_send_data):
             return False, err
         sent_index += MAX_BYTES
@@ -216,7 +216,8 @@ def unwrap_queue_msg(data: bytes):
     elif len(splits) == 3:
         ret["cmd"], ret["args"], ret["data"] = splits
     else:
-        raise ValueError("this is a bug~! contact author, thanks~")
+        raise ValueError(
+            b"data:<%s> this is a bug~! contact author, thanks~" % data)
 
     ret = {
         k: v.replace(queue_args_splits_escape, queue_args_splits)
@@ -251,7 +252,7 @@ def _check_all_queue_cmds():
         tried_cmds += 1
 
 
-QUEUE_HI = b"hi"
+QUEUE_HI = b"HI"
 QUEUE_AUTH_KEY = b"AUTH_KEY"
 QUEUE_NEED_AUTH = b"NEED_AUTH"
 QUEUE_AUTH_FAIL = b"AUTH_FAIL"
