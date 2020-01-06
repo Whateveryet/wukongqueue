@@ -192,6 +192,7 @@ class TcpClient(TcpConn):
             self.skt.close()
             raise e
 
+
 # TODO: improve this method with a better convert way
 def wrap_queue_msg(queue_cmd: bytes, args={}, data: bytes = b""):
     return json.dumps(
