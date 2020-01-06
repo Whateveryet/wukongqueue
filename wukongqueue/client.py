@@ -81,11 +81,17 @@ class WuKongQueueClient:
         self._do_connect()
 
     def _do_connect(self, on_init=True) -> bool:
-        self._tcp_client = None
+        # not connect to server if _pre_conn is true and on_init
         if self._pre_conn:
             if on_init:
+                self._tcp_client = None
                 return False
+            else:
+                # if on_init is false, do connect to server
+                pass
         try:
+            # if fail to connect to server, self._tcp_client = None
+            self._tcp_client = None
             self._tcp_client = TcpClient(*self.server_addr)
             wukong_pkg = self._tcp_client.read()
             if wukong_pkg.err:
@@ -117,9 +123,9 @@ class WuKongQueueClient:
                 "failed to connect to %s, err:%s,%s"
                 % (str(self.server_addr), e.__class__, e.args)
             )
-            # raises the exception only on init
-            if not self._silence_err or (self._silence_err and on_init):
-                raise e
+            if self._silence_err is False or (self._silence_err and on_init):
+                if not isinstance(e, ConnectionRefusedError):
+                    raise e
             return False
 
     def put(

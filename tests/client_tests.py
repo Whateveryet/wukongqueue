@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 import logging
 import sys
-import time
 from unittest import TestCase, main
+
+import time
 
 sys.path.append("../")
 try:
@@ -222,6 +223,12 @@ class ClientTests(TestCase):
             svr = new_svr(port=port, log_level=logging.INFO)
             with svr.helper():
                 self.assertIs(client.connected(), True)
+
+        # silence_err
+        port += 1
+        with WuKongQueueClient(host=host, port=port,
+                               auto_reconnect=True, silence_err=True)as client:
+            self.assertIs(None, client.put(item='1'))
 
 
 if __name__ == "__main__":
