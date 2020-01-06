@@ -49,7 +49,7 @@ class WukongPkg:
     """customized communication msg package"""
 
     def __init__(
-            self, msg: bytes = b"", err=None, closed=False, encoding="utf8"
+        self, msg: bytes = b"", err=None, closed=False, encoding="utf8"
     ):
         """
         :param msg: raw bytes
@@ -103,7 +103,7 @@ def read_wukong_data(conn: socket.socket) -> WukongPkg:
 
         buffer.append(data[:bye_index])
         if len(data) < bye_index + delimiter_len:
-            _STREAM_BUFFER.append(data[bye_index + delimiter_len:])
+            _STREAM_BUFFER.append(data[bye_index + delimiter_len :])
         break
     msg = b"".join(buffer).replace(delimiter_escape, delimiter)
     ret = WukongPkg(msg)
@@ -130,7 +130,7 @@ def write_wukong_data(conn: socket.socket, msg: WukongPkg) -> (bool, str):
 
     while sent_index < _bytes_msg_len:
         sent_index = 0 if sent_index == -1 else sent_index
-        will_send_data = _bytes_msg[sent_index: sent_index + MAX_BYTES]
+        will_send_data = _bytes_msg[sent_index : sent_index + MAX_BYTES]
         if not _send_msg(will_send_data):
             return False, err
         sent_index += MAX_BYTES
@@ -196,14 +196,22 @@ class TcpClient(TcpConn):
 # TODO: improve this method with a better convert way
 def wrap_queue_msg(queue_cmd: bytes, args={}, data: bytes = b""):
     return json.dumps(
-        {"cmd": queue_cmd.decode(), "args": args,
-         "data": data.decode()}).encode("utf8")
+        {"cmd": queue_cmd.decode(), "args": args, "data": data.decode()}
+    ).encode("utf8")
 
 
 def unwrap_queue_msg(data: bytes):
-    ret = json.loads(data.decode("utf8"))
+    ret = {"cmd": data, "data": b"", "args": {}, "err": ""}
+    if not data.startswith(b"{"):
+        return ret
+    try:
+        ret = json.loads(data.decode("utf8"))
+    except json.JSONDecodeError:
+        ret["err"] = "json.JSONDecodeError:%s" % data
+        return ret
     ret["cmd"] = ret["cmd"].encode()
     ret["data"] = ret["data"].encode()
+    ret["err"] = ""
     return ret
 
 

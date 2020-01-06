@@ -213,11 +213,15 @@ class WuKongQueue:
 
                 data = wukongpkg.raw_data
                 resp = unwrap_queue_msg(data)
-                cmd, args, data = (
+                cmd, args, data, err = (
                     resp["cmd"],
                     resp["args"],
                     resp["data"],
+                    resp["err"],
                 )
+                if err:
+                    raise ValueError("unwrap_queue_msg err:%s" % err)
+
                 # Instruction for cmd and data interaction:
                 #   1. if only queue_cmd, just send WukongPkg(QUEUE_OK)
                 #   2. if there's arg or data besides queue_cmd, use

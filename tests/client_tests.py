@@ -185,8 +185,6 @@ class ClientTests(TestCase):
             log_level=logging.FATAL
         )
         with client.helper():
-            self.assertRaises(Disconnected, client.put, item="1")
-            self.assertRaises(Disconnected, client.get)
             self.assertIs(client.connected(), False)
             self.assertEqual(client.realtime_qsize(), 0)
             self.assertEqual(client.realtime_maxsize(), 0)
