@@ -192,41 +192,17 @@ class TcpClient(TcpConn):
             self.skt.close()
             raise e
 
-
-queue_args_splits = b"-"
-queue_args_splits_escape = b"-:"
-
-
+# TODO: improve this method with a better convert way
 def wrap_queue_msg(queue_cmd: bytes, args={}, data: bytes = b""):
-    return queue_args_splits.join(
-        [
-            c.replace(queue_args_splits, queue_args_splits_escape)
-            for c in [queue_cmd, json.dumps(args).encode(), data]
-        ]
-    )
+    return json.dumps(
+        {"cmd": queue_cmd.decode(), "args": args,
+         "data": data.decode()}).encode("utf8")
 
 
 def unwrap_queue_msg(data: bytes):
-    ret = {"cmd": b"", "args": b"", "data": b""}
-    splits = data.split(queue_args_splits)
-    if len(splits) == 1:
-        ret["cmd"] = splits[0]
-    elif len(splits) == 2:
-        ret["cmd"], ret["data"] = splits
-    elif len(splits) == 3:
-        ret["cmd"], ret["args"], ret["data"] = splits
-    else:
-        raise ValueError(
-            b"data:<%s> this is a bug~! contact author, thanks~" % data)
-
-    ret = {
-        k: v.replace(queue_args_splits_escape, queue_args_splits)
-        for k, v in ret.items()
-    }
-    if ret["args"]:
-        ret["args"] = json.loads(ret["args"].decode())
-    else:
-        ret["args"] = {}
+    ret = json.loads(data.decode("utf8"))
+    ret["cmd"] = ret["cmd"].encode()
+    ret["data"] = ret["data"].encode()
     return ret
 
 
