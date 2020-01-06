@@ -95,6 +95,7 @@ class ServerTests(TestCase):
                         pass
                 except ClientsFull:
                     pass
+        port += 1
         svr = new_svr(port=port, log_level=logging.WARNING)
         with svr.helper():
             with WuKongQueueClient(host=host, port=port,
