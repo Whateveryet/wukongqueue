@@ -85,14 +85,25 @@ class ServerTests(TestCase):
     def test_max_clients(self):
         global port
         port += 1
-        svr = new_svr(port=port, max_clients=1, log_level=logging.DEBUG)
+        svr = new_svr(port=port, max_clients=1, log_level=logging.WARNING)
         with svr.helper():
-            with WuKongQueueClient(host=host, port=port):
+            with WuKongQueueClient(host=host, port=port,
+                                   log_level=logging.WARNING):
                 try:
-                    with WuKongQueueClient(host=host, port=port):
+                    with WuKongQueueClient(host=host, port=port,
+                                           log_level=logging.WARNING):
                         pass
                 except ClientsFull:
                     pass
+        svr = new_svr(port=port, log_level=logging.WARNING)
+        with svr.helper():
+            with WuKongQueueClient(host=host, port=port,
+                                   log_level=logging.WARNING):
+                with WuKongQueueClient(host=host, port=port,
+                                       log_level=logging.WARNING):
+                    with WuKongQueueClient(host=host, port=port,
+                                           log_level=logging.WARNING):
+                        pass
 
 
 if __name__ == "__main__":

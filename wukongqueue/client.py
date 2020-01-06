@@ -81,11 +81,10 @@ class WuKongQueueClient:
         self._do_connect()
 
     def _do_connect(self, on_init=True) -> bool:
+        self._tcp_client = None
         if self._pre_conn:
             if on_init:
-                self._tcp_client = None
                 return False
-
         try:
             self._tcp_client = TcpClient(*self.server_addr)
             wukong_pkg = self._tcp_client.read()
@@ -94,12 +93,14 @@ class WuKongQueueClient:
                 raise ConnectionFail(wukong_pkg.err)
             elif wukong_pkg.closed:
                 self._tcp_client.close()
-                raise ClientsFull("The client connected to the server is full")
+                raise ClientsFull(
+                    "The WuKongQueue server %s is full" % str(self.server_addr)
+                )
             elif wukong_pkg.raw_data == QUEUE_HI:
                 if self._do_authenticate(self._auth_key) is False:
                     self._tcp_client.close()
                     raise AuthenticationFail(
-                        "WuKongQueue Svr-addr:%s "
+                        "WuKongQueue server-addr:%s "
                         "authentication failed" % str(self.server_addr)
                     )
                 # connect success!
@@ -117,9 +118,8 @@ class WuKongQueueClient:
                 % (str(self.server_addr), e.__class__, e.args)
             )
             # raises the exception only on init
-            if self._silence_err:
-                if on_init:
-                    raise e
+            if not self._silence_err or (self._silence_err and on_init):
+                raise e
             return False
 
     def put(
@@ -152,7 +152,7 @@ class WuKongQueueClient:
             self._process_disconnect()
         elif wukong_pkg.raw_data == QUEUE_FULL:
             raise Full(
-                "WuKongQueue Svr-addr:%s is full" % str(self.server_addr)
+                "WuKongQueue server-addr:%s is full" % str(self.server_addr)
             )
         # wukong_pkg.raw_data == QUEUE_OK if put success!
 
@@ -189,7 +189,7 @@ class WuKongQueueClient:
             self._process_disconnect()
         if wukong_pkg.raw_data == QUEUE_EMPTY:
             raise Empty(
-                "WuKongQueue Svr-addr:%s is empty" % str(self.server_addr)
+                "WuKongQueue server-addr:%s is empty" % str(self.server_addr)
             )
 
         ret = unwrap_queue_msg(wukong_pkg.raw_data)
@@ -308,7 +308,7 @@ class WuKongQueueClient:
             self._tcp_client.close()
 
     def _process_disconnect(self, msg=""):
-        m = "WuKongQueue Svr-addr:%s is disconnected" % str(self.server_addr)
+        m = "WuKongQueue server-addr:%s is disconnected" % str(self.server_addr)
         m = msg if msg else m
         if self._silence_err:
             self._logger.warning(m)
