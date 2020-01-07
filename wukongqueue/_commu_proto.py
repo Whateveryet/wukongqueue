@@ -1,6 +1,7 @@
 # Protocol of communication
 
 import json
+from base64 import b64encode, b64decode
 from copy import deepcopy
 
 import socket
@@ -49,7 +50,7 @@ class WukongPkg:
     """customized communication msg package"""
 
     def __init__(
-        self, msg: bytes = b"", err=None, closed=False, encoding="utf8"
+            self, msg: bytes = b"", err=None, closed=False, encoding="utf8"
     ):
         """
         :param msg: raw bytes
@@ -103,7 +104,7 @@ def read_wukong_data(conn: socket.socket) -> WukongPkg:
 
         buffer.append(data[:bye_index])
         if len(data) < bye_index + delimiter_len:
-            _STREAM_BUFFER.append(data[bye_index + delimiter_len :])
+            _STREAM_BUFFER.append(data[bye_index + delimiter_len:])
         break
     msg = b"".join(buffer).replace(delimiter_escape, delimiter)
     ret = WukongPkg(msg)
@@ -130,7 +131,7 @@ def write_wukong_data(conn: socket.socket, msg: WukongPkg) -> (bool, str):
 
     while sent_index < _bytes_msg_len:
         sent_index = 0 if sent_index == -1 else sent_index
-        will_send_data = _bytes_msg[sent_index : sent_index + MAX_BYTES]
+        will_send_data = _bytes_msg[sent_index: sent_index + MAX_BYTES]
         if not _send_msg(will_send_data):
             return False, err
         sent_index += MAX_BYTES
@@ -171,6 +172,7 @@ class TcpSvr(TcpConn):
         # handle High concurrent connection requests, It's enough
         # to set 0 here.
         # https://tangentsoft.net/wskfaq/advanced.html#backlog
+        # https://www.mkssoftware.com/docs/man3/listen.3.asp
         self.skt.listen(0)
 
     def accept(self):
@@ -193,25 +195,29 @@ class TcpClient(TcpConn):
             raise e
 
 
-# TODO: improve this method with a better convert way
-def wrap_queue_msg(queue_cmd: bytes, args={}, data: bytes = b""):
-    return json.dumps(
-        {"cmd": queue_cmd.decode(), "args": args, "data": data.decode()}
-    ).encode("utf8")
+def wrap_queue_msg(queue_cmd: bytes, args: dict = None,
+                   data: bytes = b"") -> bytes:
+    # base64 does not contain ``*``
+    # parameter `args` must be JSON serializable
+    if args is None:
+        args = {}
+    return b"*".join(
+        [
+            b64encode(queue_cmd),
+            b64encode(json.dumps(args).encode()),
+            b64encode(data),
+        ]
+    )
 
 
-def unwrap_queue_msg(data: bytes):
-    ret = {"cmd": data, "data": b"", "args": {}, "err": ""}
-    if not data.startswith(b"{"):
+def unwrap_queue_msg(msg: bytes) -> dict:
+    _lst = msg.split(b"*")
+    ret = {"cmd": _lst[0], "data": b"", "args": {}, "err": ""}
+    if len(_lst) == 1:
         return ret
-    try:
-        ret = json.loads(data.decode("utf8"))
-    except json.JSONDecodeError:
-        ret["err"] = "json.JSONDecodeError:%s" % data
-        return ret
-    ret["cmd"] = ret["cmd"].encode()
-    ret["data"] = ret["data"].encode()
-    ret["err"] = ""
+    ret["cmd"] = b64decode(_lst[0])
+    ret["args"] = json.loads(b64decode(_lst[1]).decode())
+    ret["data"] = b64decode(_lst[2])
     return ret
 
 
