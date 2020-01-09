@@ -194,11 +194,11 @@ class ClientTests(TestCase):
     def test_authenticate(self):
         global port
         port += 1
-        # svr = new_svr(port=port, log_level=logging.INFO)
-        # with svr.helper():
-        #     # auth_key is None, don't need authenticate
-        #     with WuKongQueueClient(host=host, port=port) as client:
-        #         client.put("1")
+        svr = new_svr(port=port, log_level=logging.INFO)
+        with svr.helper():
+            # auth_key is None, don't need authenticate
+            with WuKongQueueClient(host=host, port=port) as client:
+                client.put("1")
 
         port += 1
         auth = '123'

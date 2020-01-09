@@ -79,8 +79,7 @@ class ServerTests(TestCase):
         global port
         port += 1
         with new_svr(port=port, log_level=logging.WARNING):
-            pass
-            # self.assertRaises(OSError, new_svr, port=port)
+            self.assertRaises(OSError, new_svr, port=port)
 
     def test_max_clients(self):
         global port
