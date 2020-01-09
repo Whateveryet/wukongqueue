@@ -225,7 +225,6 @@ class ClientTests(TestCase):
                 self.assertIs(client.connected(), True)
 
         # silence_err
-        port += 1
         with WuKongQueueClient(host=host, port=port,
                                auto_reconnect=True, silence_err=True)as client:
             self.assertIs(None, client.put(item='1'))
