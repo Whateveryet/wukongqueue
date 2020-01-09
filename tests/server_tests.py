@@ -11,13 +11,22 @@ except ImportError:
 
 max_size = 2
 host = "127.0.0.1"
-default_port = 9999
-port = list(range(1024, 1100))
+port = 9999
 
 
-def new_svr(host=host, port=default_port, max_clients=0, log_level=logging.DEBUG):
-    return WuKongQueue(host=host, port=port, maxsize=max_size,
-                       max_clients=max_clients, log_level=log_level)
+def new_svr(host=host, max_clients=0, log_level=logging.DEBUG,
+            dont_change_port=False):
+    p = port
+    while 1:
+        try:
+            return WuKongQueue(host=host, port=p, maxsize=max_size,
+                               max_clients=max_clients,
+                               log_level=log_level), p
+        except OSError as e:
+            if 'already' in str(e.args) or '只允许使用一次' in str(e.args):
+                if dont_change_port is True:
+                    raise e
+                p += 1
 
 
 class ServerTests(TestCase):
@@ -28,7 +37,7 @@ class ServerTests(TestCase):
             empty
             close
         """
-        svr = new_svr(log_level=logging.WARNING)
+        svr, mport = new_svr(log_level=logging.WARNING)
         with svr.helper():
             put_str = "str" * 100
             put_bytes = b"byte" * 100
@@ -54,9 +63,7 @@ class ServerTests(TestCase):
             max_size
             close
         """
-        global port
-        mport = port.pop()
-        svr = new_svr(port=mport, log_level=logging.WARNING)
+        svr, mport = new_svr(log_level=logging.WARNING)
         with svr.helper():
             self.assertEqual(svr.qsize(), 0)
             svr.put("1")
@@ -77,15 +84,12 @@ class ServerTests(TestCase):
             client.close()
 
     def test_port_conflict(self):
-        global port
-        mport = port.pop()
-        with new_svr(port=mport, log_level=logging.WARNING):
-            self.assertRaises(OSError, new_svr, port=mport)
+        with new_svr(log_level=logging.WARNING)[0]:
+            self.assertRaises(OSError, new_svr, dont_change_port=True)
 
     def test_max_clients(self):
-        global port
-        mport = port.pop()
-        svr = new_svr(port=mport, max_clients=1, log_level=logging.WARNING)
+        svr, mport = new_svr(max_clients=1,
+                             log_level=logging.WARNING)
         with svr.helper():
             with WuKongQueueClient(host=host, port=mport,
                                    log_level=logging.WARNING):
@@ -95,8 +99,8 @@ class ServerTests(TestCase):
                         pass
                 except ClientsFull:
                     pass
-        mport = port.pop()
-        svr = new_svr(port=mport, log_level=logging.WARNING)
+
+        svr, mport = new_svr(log_level=logging.WARNING)
         with svr.helper():
             with WuKongQueueClient(host=host, port=mport,
                                    log_level=logging.WARNING):
@@ -107,9 +111,6 @@ class ServerTests(TestCase):
                         pass
 
     def test_join(self):
-        global port
-        mport = port.pop()
-
         join = False
         import time
 
@@ -120,7 +121,7 @@ class ServerTests(TestCase):
             nonlocal join
             join = True
 
-        svr = new_svr(port=mport, log_level=logging.WARNING)
+        svr, mport = new_svr(log_level=logging.WARNING)
         with svr.helper():
             new_thread(do_join, kw={'s': svr})
             svr.put('1')

@@ -14,15 +14,24 @@ except ImportError:
 max_size = 2
 host = "127.0.0.1"
 default_port = 9999
-port = list(range(1024,1100))
+port = list(range(1024, 1100))
 
 
-def new_svr(host=host, port=default_port, auth=None, log_level=logging.DEBUG):
-    return WuKongQueue(
-        host=host, port=port, maxsize=max_size,
-        log_level=log_level,
-        auth_key=auth
-    )
+def new_svr(host=host, port=default_port, auth=None, log_level=logging.DEBUG,
+            dont_change_port=False, max_size=max_size):
+    p = port
+    while 1:
+        try:
+            return WuKongQueue(
+                host=host, port=port, maxsize=max_size,
+                log_level=log_level,
+                auth_key=auth
+            ), p
+        except OSError as e:
+            if 'already' in str(e.args) or '只允许使用一次' in str(e.args):
+                if dont_change_port is True:
+                    raise e
+                p += 1
 
 
 class ClientTests(TestCase):
@@ -33,9 +42,7 @@ class ClientTests(TestCase):
             empty
             connected
         """
-        global port
-        mport = port.pop()
-        svr = new_svr(port=mport, log_level=logging.FATAL)
+        svr, mport = new_svr(log_level=logging.FATAL)
         with svr.helper():
             client = WuKongQueueClient(host=host, port=mport)
             put_str = "str" * 100
@@ -70,9 +77,7 @@ class ClientTests(TestCase):
         tested-api:
             connected_clients
         """
-        global port
-        mport = port.pop()
-        svr = new_svr(port=mport, log_level=logging.FATAL)
+        svr, mport = new_svr(log_level=logging.FATAL)
         with svr.helper():
             # exit()
             c = []
@@ -101,9 +106,7 @@ class ClientTests(TestCase):
             realtime_maxsize
             realtime_qsize
         """
-        global port
-        mport = port.pop()
-        svr = new_svr(port=mport, log_level=logging.FATAL)
+        svr, mport = new_svr(log_level=logging.FATAL)
         with svr.helper():
             client = WuKongQueueClient(host=host, port=mport)
             with client.helper():
@@ -123,9 +126,7 @@ class ClientTests(TestCase):
             put
             get
         """
-        global port
-        mport = port.pop()
-        svr = new_svr(port=mport, log_level=logging.FATAL)
+        svr, mport = new_svr(log_level=logging.FATAL)
         with svr.helper():
             client = WuKongQueueClient(host=host, port=mport)
             with client.helper():
@@ -141,10 +142,8 @@ class ClientTests(TestCase):
                 )
 
     def test_run_with_multithreading(self):
-        global port, max_size
-        mport = port.pop()
         max_size = 30
-        svr = new_svr(port=mport, log_level=logging.FATAL)
+        svr, mport = new_svr(max_size=max_size, log_level=logging.FATAL)
 
         put_strs = [str(i) for i in range(max_size)]
         Sum = sum(list(range(max_size)))
@@ -175,11 +174,9 @@ class ClientTests(TestCase):
             self.assertEqual(Sum, _tmp_sum)
 
     def test_silence_err(self):
-        global port
-        mport = port.pop()
         client = WuKongQueueClient(
             host=host,
-            port=mport,
+            port=65530,
             silence_err=True,
             pre_connect=True,
             auto_reconnect=True,
@@ -192,48 +189,49 @@ class ClientTests(TestCase):
             self.assertIs(client.full() and client.empty(), False)
 
     def test_authenticate(self):
-        global port
-        mport = port.pop()
-        svr = new_svr(port=mport, log_level=logging.INFO)
+        svr, mport = new_svr(log_level=logging.INFO)
         with svr.helper():
             # auth_key is None, don't need authenticate
             with WuKongQueueClient(host=host, port=mport) as client:
                 client.put("1")
 
         auth = '123'
-        mport = port.pop()
-        svr = new_svr(port=mport, auth=auth, log_level=logging.INFO)
+        svr, mport = new_svr(auth=auth, log_level=logging.INFO)
         with svr.helper():
-            with WuKongQueueClient(host=host, port=mport,
+            with WuKongQueueClient(host=host,
+                                   port=mport,
                                    auth_key=auth) as client:
                 client.put("1")
 
             try:
-                with WuKongQueueClient(host=host, port=mport,
+                with WuKongQueueClient(host=host,
+                                       port=mport,
                                        auth_key=auth + '1'):
                     pass
             except AuthenticationFail:
                 pass
 
     def test_auto_conn(self):
-        global port
-        mport = port.pop()
-        with WuKongQueueClient(host=host, port=mport, pre_connect=True,
+        p = 65531
+        with WuKongQueueClient(host=host,
+                               port=p,
+                               pre_connect=True,
                                auto_reconnect=True)as client:
             self.assertRaises(Disconnected, client.put, item='1')
-            svr = new_svr(port=mport, log_level=logging.INFO)
+            svr, mport = new_svr(port=p, log_level=logging.INFO,
+                                 dont_change_port=True)
             with svr.helper():
                 self.assertIs(client.connected(), True)
 
         # silence_err
-        with WuKongQueueClient(host=host, port=mport,
-                               auto_reconnect=True, silence_err=True)as client:
+        with WuKongQueueClient(host=host,
+                               port=p,
+                               auto_reconnect=True,
+                               silence_err=True)as client:
             self.assertIs(None, client.put(item='1'))
 
     def test_join(self):
-        global port
-        mport = port.pop()
-        svr = new_svr(port=mport, log_level=logging.INFO)
+        svr, mport = new_svr(log_level=logging.INFO)
         join = False
 
         def do_join():
