@@ -1,8 +1,10 @@
 # Protocol of communication
 
 import json
-import socket
+from base64 import b64encode, b64decode
 from copy import deepcopy
+
+import socket
 
 __all__ = [
     "read_wukong_data",
@@ -12,6 +14,10 @@ __all__ = [
     "TcpClient",
     "wrap_queue_msg",
     "unwrap_queue_msg",
+    "QUEUE_HI",
+    "QUEUE_AUTH_KEY",
+    "QUEUE_NEED_AUTH",
+    "QUEUE_AUTH_FAIL",
     "QUEUE_FULL",
     "QUEUE_GET",
     "QUEUE_PUT",
@@ -27,6 +33,8 @@ __all__ = [
     "QUEUE_MAXSIZE",
     "QUEUE_RESET",
     "QUEUE_CLIENTS",
+    "QUEUE_TASK_DONE",
+    "QUEUE_JOIN",
 ]
 
 
@@ -56,7 +64,7 @@ class WukongPkg:
         self.raw_data = msg
         self.err = err
         self.encoding = encoding
-        self._is_skt_closed = closed
+        self.closed = closed
 
     def __repr__(self):
         return self.raw_data.decode(encoding=self.encoding)
@@ -65,7 +73,7 @@ class WukongPkg:
         return len(self.raw_data) > 0
 
     def is_valid(self) -> bool:
-        return any([self._is_skt_closed, self.err]) is False
+        return any([self.closed, self.err]) is False
 
 
 # max read/write to 4KB
@@ -87,6 +95,7 @@ def read_wukong_data(conn: socket.socket) -> WukongPkg:
             data = conn.recv(MAX_BYTES)
         except Exception as e:
             return WukongPkg(err="%s,%s" % (e.__class__, e.args))
+        # if data is empty byte,that represents the conn was closed by peer.
         if data == b"":
             return WukongPkg(closed=True)
 
@@ -106,6 +115,8 @@ def read_wukong_data(conn: socket.socket) -> WukongPkg:
 
 def write_wukong_data(conn: socket.socket, msg: WukongPkg) -> (bool, str):
     """NOTE: Sending an empty string is allowed"""
+
+    # `+delimiter` ensure never send a empty byte to peer
     _bytes_msg = msg.raw_data.replace(delimiter, delimiter_escape) + delimiter
     _bytes_msg_len = len(_bytes_msg)
     sent_index = -1
@@ -147,23 +158,31 @@ class TcpConn:
 
 
 class TcpSvr(TcpConn):
-    def __init__(self, host, port, max_conns=0):
+    def __init__(self, host, port):
         """
         :param host: ...
         :param port: ...
-        :param max_conns: maximum connects
         """
         super().__init__()
-        self.skt.bind((host, port))
-        self.max_conns = max_conns
-        self.skt.listen(self.max_conns)
+        try:
+            self.skt.bind((host, port))
+        except OSError as e:
+            self.skt.close()
+            raise e
+
+        # the backlog parameter is commonly set a large value to
+        # handle High concurrent connection requests, It's enough
+        # to set 0 here.
+        # https://tangentsoft.net/wskfaq/advanced.html#backlog
+        # https://www.mkssoftware.com/docs/man3/listen.3.asp
+        self.skt.listen(0)
 
     def accept(self):
         return self.skt.accept()
 
 
 class TcpClient(TcpConn):
-    def __init__(self, host, port, pre_connect=False):
+    def __init__(self, host, port):
         """
         :param host: ...
         :param port: ...
@@ -171,47 +190,37 @@ class TcpClient(TcpConn):
         a real connection when you want to communicate
         """
         super().__init__()
-        if pre_connect is False:
-            try:
-                self.skt.connect((host, port))
-            except Exception as e:
-                self.skt.close()
-                raise e
+        try:
+            self.skt.connect((host, port))
+        except Exception as e:
+            self.skt.close()
+            raise e
 
 
-queue_args_splits = b"-"
-queue_args_splits_escape = b"-:"
-
-
-def wrap_queue_msg(queue_cmd: bytes, args={}, data: bytes = b""):
-    return queue_args_splits.join(
+def wrap_queue_msg(
+    queue_cmd: bytes, args: dict = None, data: bytes = b""
+) -> bytes:
+    # base64 does not contain ``*``
+    # parameter `args` must be JSON serializable
+    if args is None:
+        args = {}
+    return b"*".join(
         [
-            c.replace(queue_args_splits, queue_args_splits_escape)
-            for c in [queue_cmd, json.dumps(args).encode(), data]
+            b64encode(queue_cmd),
+            b64encode(json.dumps(args).encode()),
+            b64encode(data),
         ]
     )
 
 
-def unwrap_queue_msg(data: bytes):
-    ret = {"cmd": b"", "args": b"", "data": b""}
-    splits = data.split(queue_args_splits)
-    if len(splits) == 1:
-        ret["cmd"] = splits[0]
-    elif len(splits) == 2:
-        ret["cmd"], ret["data"] = splits
-    elif len(splits) == 3:
-        ret["cmd"], ret["args"], ret["data"] = splits
-    else:
-        raise ValueError("this is a bug~! contact author, thanks~")
-
-    ret = {
-        k: v.replace(queue_args_splits_escape, queue_args_splits)
-        for k, v in ret.items()
-    }
-    if ret["args"]:
-        ret["args"] = json.loads(ret["args"].decode())
-    else:
-        ret["args"] = {}
+def unwrap_queue_msg(msg: bytes) -> dict:
+    _lst = msg.split(b"*")
+    ret = {"cmd": _lst[0], "data": b"", "args": {}, "err": ""}
+    if len(_lst) == 1:
+        return ret
+    ret["cmd"] = b64decode(_lst[0])
+    ret["args"] = json.loads(b64decode(_lst[1]).decode())
+    ret["data"] = b64decode(_lst[2])
     return ret
 
 
@@ -237,6 +246,10 @@ def _check_all_queue_cmds():
         tried_cmds += 1
 
 
+QUEUE_HI = b"HI"
+QUEUE_AUTH_KEY = b"AUTH_KEY"
+QUEUE_NEED_AUTH = b"NEED_AUTH"
+QUEUE_AUTH_FAIL = b"AUTH_FAIL"
 QUEUE_PUT = b"PUT"
 QUEUE_GET = b"GET"
 QUEUE_DATA = b"DATA"
@@ -252,5 +265,7 @@ QUEUE_SIZE = b"SIZE"
 QUEUE_MAXSIZE = b"MAXSIZE"
 QUEUE_RESET = b"RESET"
 QUEUE_CLIENTS = b"CLIENTS"
+QUEUE_TASK_DONE = b"TASK_DONE"
+QUEUE_JOIN = b"JOIN"
 
 _check_all_queue_cmds()

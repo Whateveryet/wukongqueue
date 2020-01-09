@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import logging
 import sys
 from unittest import TestCase, main
 
@@ -10,11 +11,26 @@ except ImportError:
 
 max_size = 2
 host = "127.0.0.1"
-port = 9918
+port = 9999
 
 
-def new_svr(host=host, port=port):
-    return WuKongQueue(host=host, port=port, max_size=max_size)
+def new_svr(host=host, max_clients=0, log_level=logging.DEBUG,
+            dont_change_port=False):
+    p = port
+    while 1:
+        try:
+            return WuKongQueue(host=host, port=p, maxsize=max_size,
+                               max_clients=max_clients,
+                               log_level=log_level), p
+        except OSError as e:
+            if 'already' in str(e.args) or '只允许使用一次' in str(e.args):
+                if dont_change_port is True:
+                    raise e
+                if p >= 65535:
+                    raise e
+                p += 1
+            else:
+                raise e
 
 
 class ServerTests(TestCase):
@@ -25,7 +41,7 @@ class ServerTests(TestCase):
             empty
             close
         """
-        svr = new_svr()
+        svr, mport = new_svr(log_level=logging.WARNING)
         with svr.helper():
             put_str = "str" * 100
             put_bytes = b"byte" * 100
@@ -51,27 +67,75 @@ class ServerTests(TestCase):
             max_size
             close
         """
-        global port
-        port += 1
-        svr = new_svr(port=port)
+        svr, mport = new_svr(log_level=logging.WARNING)
         with svr.helper():
             self.assertEqual(svr.qsize(), 0)
             svr.put("1")
             svr.put("1")
             self.assertEqual(svr.qsize(), 2)
             self.assertRaises(Full, svr.put, item="1", block=False)
-            self.assertEqual(svr.max_size, 2)
+            self.assertEqual(svr.maxsize, 2)
             svr.reset(3)
-            self.assertEqual(svr.max_size, 3)
+            self.assertEqual(svr.maxsize, 3)
             for i in range(3):
                 svr.put("1")
             self.assertIs(svr.full(), True)
 
-            client = WuKongQueueClient(host=host, port=port)
+            client = WuKongQueueClient(host=host, port=mport)
             self.assertIs(client.connected(), True)
             svr.close()
             self.assertIs(client.connected(), False)
             client.close()
+
+    def test_port_conflict(self):
+        with new_svr(log_level=logging.WARNING)[0]:
+            self.assertRaises(OSError, new_svr, dont_change_port=True)
+
+    def test_max_clients(self):
+        svr, mport = new_svr(max_clients=1,
+                             log_level=logging.WARNING)
+        with svr.helper():
+            with WuKongQueueClient(host=host, port=mport,
+                                   log_level=logging.WARNING):
+                try:
+                    with WuKongQueueClient(host=host, port=mport,
+                                           log_level=logging.WARNING):
+                        pass
+                except ClientsFull:
+                    pass
+
+        svr, mport = new_svr(log_level=logging.WARNING)
+        with svr.helper():
+            with WuKongQueueClient(host=host, port=mport,
+                                   log_level=logging.WARNING):
+                with WuKongQueueClient(host=host, port=mport,
+                                       log_level=logging.WARNING):
+                    with WuKongQueueClient(host=host, port=mport,
+                                           log_level=logging.WARNING):
+                        pass
+
+    def test_join(self):
+        join = False
+        import time
+
+        def do_join(s: WuKongQueue):
+            import time
+            time.sleep(0.5)
+            s.join()
+            nonlocal join
+            join = True
+
+        svr, mport = new_svr(log_level=logging.WARNING)
+        with svr.helper():
+            new_thread(do_join, kw={'s': svr})
+            svr.put('1')
+            svr.put('2')
+            time.sleep(1)
+            svr.task_done()
+            svr.task_done()
+            time.sleep(0.5)
+            self.assertIs(join, True)
+            self.assertRaises(ValueError, svr.task_done)
 
 
 if __name__ == "__main__":
