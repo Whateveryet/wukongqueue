@@ -15,7 +15,7 @@ port = 6666
 
 
 def new_svr(host=host, port=port, max_clients=0, log_level=logging.DEBUG):
-    return WuKongQueue(host=host, port=port, max_size=max_size,
+    return WuKongQueue(host=host, port=port, maxsize=max_size,
                        max_clients=max_clients, log_level=log_level)
 
 
@@ -62,9 +62,9 @@ class ServerTests(TestCase):
             svr.put("1")
             self.assertEqual(svr.qsize(), 2)
             self.assertRaises(Full, svr.put, item="1", block=False)
-            self.assertEqual(svr.max_size, 2)
+            self.assertEqual(svr.maxsize, 2)
             svr.reset(3)
-            self.assertEqual(svr.max_size, 3)
+            self.assertEqual(svr.maxsize, 3)
             for i in range(3):
                 svr.put("1")
             self.assertIs(svr.full(), True)
@@ -105,6 +105,32 @@ class ServerTests(TestCase):
                     with WuKongQueueClient(host=host, port=port,
                                            log_level=logging.WARNING):
                         pass
+
+    def test_join(self):
+        global port
+        port += 1
+
+        join = False
+        import time
+
+        def do_join(s: WuKongQueue):
+            import time
+            time.sleep(0.5)
+            s.join()
+            nonlocal join
+            join = True
+
+        svr = new_svr(port=port, log_level=logging.WARNING)
+        with svr.helper():
+            new_thread(do_join, kw={'s': svr})
+            svr.put('1')
+            svr.put('2')
+            time.sleep(1)
+            svr.task_done()
+            svr.task_done()
+            time.sleep(0.5)
+            self.assertIs(join, True)
+            self.assertRaises(ValueError, svr.task_done)
 
 
 if __name__ == "__main__":
