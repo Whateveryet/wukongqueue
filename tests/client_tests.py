@@ -23,7 +23,7 @@ def new_svr(host=host, port=default_port, auth=None, log_level=logging.DEBUG,
     while 1:
         try:
             return WuKongQueue(
-                host=host, port=port, maxsize=max_size,
+                host=host, port=p, maxsize=max_size,
                 log_level=log_level,
                 auth_key=auth
             ), p
