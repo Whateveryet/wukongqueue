@@ -72,7 +72,6 @@ class ClientTests(TestCase):
         """
         global port
         mport = port.pop()
-
         svr = new_svr(port=mport, log_level=logging.FATAL)
         with svr.helper():
             # exit()
@@ -202,6 +201,7 @@ class ClientTests(TestCase):
                 client.put("1")
 
         auth = '123'
+        mport = port.pop()
         svr = new_svr(port=mport, auth=auth, log_level=logging.INFO)
         with svr.helper():
             with WuKongQueueClient(host=host, port=mport,
