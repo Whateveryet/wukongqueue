@@ -31,7 +31,11 @@ def new_svr(host=host, port=default_port, auth=None, log_level=logging.DEBUG,
             if 'already' in str(e.args) or '只允许使用一次' in str(e.args):
                 if dont_change_port is True:
                     raise e
+                if p >= 65535:
+                    raise e
                 p += 1
+            else:
+                raise e
 
 
 class ClientTests(TestCase):
