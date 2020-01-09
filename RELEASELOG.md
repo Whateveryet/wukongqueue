@@ -1,4 +1,6 @@
 ## Release log
+#### v0.0.5
+Same to v0.0.5rc1
 
 #### v0.0.5rc1
 *This is a big upgrades*

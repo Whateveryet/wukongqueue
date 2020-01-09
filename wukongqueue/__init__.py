@@ -3,4 +3,4 @@
 from .client import *
 from .server import *
 
-__version__ = "0.0.5pre1"
+__version__ = "0.0.5"
