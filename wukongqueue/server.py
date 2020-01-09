@@ -114,41 +114,6 @@ class WuKongQueue:
         if self.closed:
             new_thread(self._run)
 
-    def _run(self):
-        self.closed = False
-        self._logger.debug(
-            "<WuKongQueue [%s] is listening to %s" % (self.name, self.addr)
-        )
-        while True:
-            try:
-                conn, addr = self._tcp_svr.accept()
-            except OSError:
-                return
-
-            client_stat = _ClientStatistic(client_addr=addr, conn=conn)
-
-            with self._statistic_lock:
-                if self.max_clients > 0:
-                    if self.max_clients == len(self.client_stats):
-                        # client will receive a empty byte, that represents
-                        # clients fulled!
-                        conn.close()
-                        continue
-                self.client_stats[client_stat.me] = client_stat
-            # send hi message when connection is successful
-            ok, err = write_wukong_data(conn, WukongPkg(QUEUE_HI))
-            if ok:
-                new_thread(
-                    self.process_conn, kw={"conn": conn, "me": client_stat.me}
-                )
-                self._logger.info("new client from %s" % str(addr))
-            else:
-                # please report this problem with your python version and
-                # wukongqueue package version on
-                # https://github.com/chaseSpace/wukongqueue/issues
-                self._logger.fatal("write_wukong_data err:%s" % err)
-                return
-
     def close(self):
         """close only makes sense for the clients, server side is still
         available.
@@ -365,6 +330,41 @@ class WuKongQueue:
                 self.client_stats[client_key].conn.close()
                 self.client_stats.pop(client_key)
 
+    def _run(self):
+        self.closed = False
+        self._logger.debug(
+            "<WuKongQueue [%s] is listening to %s" % (self.name, self.addr)
+        )
+        while True:
+            try:
+                conn, addr = self._tcp_svr.accept()
+            except OSError:
+                return
+
+            client_stat = _ClientStatistic(client_addr=addr, conn=conn)
+
+            with self._statistic_lock:
+                if self.max_clients > 0:
+                    if self.max_clients == len(self.client_stats):
+                        # client will receive a empty byte, that represents
+                        # clients fulled!
+                        conn.close()
+                        continue
+                self.client_stats[client_stat.me] = client_stat
+            # send hi message when connection is successful
+            ok, err = write_wukong_data(conn, WukongPkg(QUEUE_HI))
+            if ok:
+                new_thread(
+                    self.process_conn, kw={"conn": conn, "me": client_stat.me}
+                )
+                self._logger.info("new client from %s" % str(addr))
+            else:
+                # please report this problem with your python version and
+                # wukongqueue package version on
+                # https://github.com/chaseSpace/wukongqueue/issues
+                self._logger.fatal("write_wukong_data err:%s" % err)
+                return
+
     def process_conn(self, me: str, conn):
         """run as thread at all"""
         with _WkSvrHelper(wk_inst=self, client_key=me):
@@ -384,7 +384,9 @@ class WuKongQueue:
 
                 # AUTH, it's a must to authenticate firstly
                 with self._statistic_lock:
-                    client_stat = self.client_stats[me]
+                    client_stat = self.client_stats.get(me)
+                    if client_stat is None:
+                        return 
 
                     if cmd == QUEUE_AUTH_KEY:
                         is_auth = False
