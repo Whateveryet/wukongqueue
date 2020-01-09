@@ -386,7 +386,7 @@ class WuKongQueue:
                 with self._statistic_lock:
                     client_stat = self.client_stats.get(me)
                     if client_stat is None:
-                        return 
+                        return
 
                     if cmd == QUEUE_AUTH_KEY:
                         is_auth = False

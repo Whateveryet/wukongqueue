@@ -200,7 +200,6 @@ class ClientTests(TestCase):
             with WuKongQueueClient(host=host, port=port) as client:
                 client.put("1")
 
-        port += 1
         auth = '123'
         svr = new_svr(port=port, auth=auth, log_level=logging.INFO)
         with svr.helper():
