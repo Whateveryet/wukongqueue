@@ -1,31 +1,32 @@
-中文版 | [English][English]
+[中文版][Chinese] | English
+
 ## wukongqueue
 
-一个纯Python3实现的轻量且易于使用的跨网络队列服务
+A lightweight and easy-to-use cross network queue service implemented by pure Python 3.
 
 ---
 [![Build Status](https://travis-ci.com/chaseSpace/wukongqueue.svg?branch=master)](https://travis-ci.com/chaseSpace/wukongqueue)
 [![codecov](https://codecov.io/gh/chaseSpace/WukongQueue/branch/master/graph/badge.svg)](https://codecov.io/gh/chaseSpace/WukongQueue)
 [![PyPI version](https://badge.fury.io/py/wukongqueue.svg)](https://badge.fury.io/py/wukongqueue)
 
-> wukongqueue的本地队列服务的实现基于Python标准库[`queue`][1].
+> wukongqueue's local queue service is developed based on Python standard library [`queue`][1].
 
 
-### 特点
-* 快（基于tcp长连接通信）
-* 支持断开自动重连
-* 线程安全
-* 上手成本低，api和标准库[`queue`][1]保持一致
-* 可设置认证秘钥
+## Features
+* Fast (directly based on tcp long-running connection)
+* Supports automatically reconnect when disconnected
+* Multi-producer and Multi-consumer from different threads/processes
+* Easy to use, APIs' usage like stdlib [`queue`][1]
+* Allow to set authentication key for connection to server
 
 
-### 环境要求
+## Requirements
 * Python3.5+ (need [type hints](https://www.python.org/dev/peps/pep-0484/))
 
-### 安装
+## Install
 `pip install wukongqueue`
  
-### 例子
+## Example
 ##### server.py
 ```python
 from wukongqueue import WuKongQueue
@@ -62,29 +63,30 @@ with client:
     client.join()
     print("clientB all task done!")
 ```
-按上面的顺序启动三个程序，可以看到如下打印:
+Then start these three program in order, you can see the following print:
 ```
-# server.py 首先打印
-svr is started! (马上)
-wait for clients... (3秒后)
-putted b'1' and b'2', svr closed! (10秒后)
+# server.py print firstly
+svr is started! (immediately)
+wait for clients... (+3 seconds)
+putted b'1' and b'2', svr closed! (+10s)
 
 # clientA print secondly
-got b'1' (马上)
-after 3 seconds, got b'2' (3秒后)
-clientA: all task done! (马上)
+got b'1' (immediately)
+after 3 seconds, got b'2' (+3 seconds)
+clientA: all task done!
 
 # clientB print lastly
-clientB all task done! (马上)
+clientB all task done! (same as clientA last print)
 ```
 
-现在由于跨网络通信的原因，put方法仅支持传入字节或字符串序列，而get方法获取到的只会是字节序列，
-因为最终跨网络通信时都会以字节形式传输，后续会支持python全部数据类型，请拭目以待。
+Currently, the get and put methods on the server and client only support bytes
+and strings, Because in the end, they still communicate between processes in bytes.
+But the support for all Python data types is **TODO**, please wait a moment.
 
-[更多例子](https://github.com/chaseSpace/wukongqueue/blob/master/_examples)
+[more examples](https://github.com/chaseSpace/wukongqueue/blob/master/_examples)
 
 
-### [版本发布日志](https://github.com/chaseSpace/wukongqueue/blob/master/RELEASELOG.md)
+## [Release log](https://github.com/chaseSpace/wukongqueue/blob/master/RELEASELOG.md)
 
 ## License
 [MIT](https://github.com/chaseSpace/WukongQueue/blob/master/LICENSE)
