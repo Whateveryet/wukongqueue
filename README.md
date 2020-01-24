@@ -15,7 +15,7 @@
 * 快（基于tcp长连接通信）
 * 支持断开自动重连
 * 线程安全
-* 上手成本低，api和标准库[`queue`][1]保持一致
+* 上手成本低，api使用和标准库[`queue`][1]保持一致
 * 可设置认证秘钥
 
 
@@ -83,6 +83,8 @@ clientB all task done! (马上)
 
 [更多例子](https://github.com/chaseSpace/wukongqueue/blob/master/_examples)
 
+## PLAN
+- [ ] put/get支持Python所有基础数据类型
 
 ### [版本发布日志](https://github.com/chaseSpace/wukongqueue/blob/master/RELEASELOG.md)
 
