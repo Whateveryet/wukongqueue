@@ -85,6 +85,8 @@ But the support for all Python data types is **TODO**, please wait a moment.
 
 [more examples](https://github.com/chaseSpace/wukongqueue/blob/master/_examples)
 
+## PLAN
+- [ ] Support all Python basic data type
 
 ## [Release log](https://github.com/chaseSpace/wukongqueue/blob/master/RELEASELOG.md)
 
