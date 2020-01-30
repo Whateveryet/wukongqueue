@@ -36,7 +36,6 @@ class AuthenticationFail(Exception):
 class CannotConcurrentCallBlockMethod(Exception):
     """client cannot call block method within multi-threading
     """
-
     pass
 
 
@@ -405,11 +404,17 @@ class WuKongQueueClient:
         return wukong_pkg.raw_data == QUEUE_OK
 
     def _talk_with_svr(self, msg) -> WukongPkg:
-        if self.socket_commu_lock.locked():
+        if not self.socket_commu_lock.acquire(blocking=False):
+            self._tcp_client.close()
             raise CannotConcurrentCallBlockMethod
-        with self.socket_commu_lock:
-            self._tcp_client.write(msg)
-            return self._tcp_client.read()
+        self._tcp_client.write(msg)
+        ret = self._tcp_client.read()
+        # There is no need to use try to ensure the lock is closed,
+        # because the client's method does not allow multi-threaded calls,
+        # and the program should not continue to run when there is an exception
+        # it maybe a bug, just report it ~!
+        self.socket_commu_lock.release()
+        return ret
 
     def helper(self):
         """If the place client created isn't same with using,
