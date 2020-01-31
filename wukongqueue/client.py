@@ -212,6 +212,7 @@ class WuKongQueueClient:
 
         if not wukong_pkg.is_valid():
             self._process_disconnect()
+            return
         if wukong_pkg.raw_data == QUEUE_EMPTY:
             raise Empty(
                 "WuKongQueue server-addr:%s is empty" % str(self.server_addr)
