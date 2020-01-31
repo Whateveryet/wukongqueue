@@ -14,6 +14,7 @@ __all__ = [
     "ClientsFull",
     "ConnectionFail",
     "CannotConcurrentCallBlockMethod",
+    "NotYetSupportType"
 ]
 
 
@@ -36,6 +37,7 @@ class AuthenticationFail(Exception):
 class CannotConcurrentCallBlockMethod(Exception):
     """client cannot call block method within multi-threading
     """
+
     pass
 
 
@@ -87,7 +89,7 @@ class WuKongQueueClient:
         self._auth_key = None
         auth_key = kwargs.pop("auth_key", None)
         if auth_key is not None:
-            self._auth_key = md5(auth_key.encode("utf8"))
+            self._auth_key = md5(auth_key.encode(Unify_encoding))
 
         # some methods that will block cannot be called within
         # multi-threading
@@ -142,13 +144,13 @@ class WuKongQueueClient:
                     raise e
             return False
 
-    def put(
-            self,
-            item,
-            block=True,
-            timeout=None,
-            encoding=Unify_encoding,
-    ):
+    def put(self, item, block=True, timeout=None, encoding=Unify_encoding):
+        """
+        :param item: item will be put in server's queue
+        :param encoding: not use now, just for compatibility.
+
+        Usage for block and timeout see also WuKongQueue.put
+        """
         assert isinstance(block, bool), "wrong block arg type:%s" % type(block)
         if timeout is not None:
             assert type(timeout) in [int, float], "invalid timeout"
@@ -157,7 +159,12 @@ class WuKongQueueClient:
             self._process_disconnect()
             return
 
-        item_wrapped = item_wrapper(item)
+        try:
+            item_wrapped = item_wrapper(item)
+        except Exception as e:
+            raise NotYetSupportType(
+                "%s is not supported yet, wrapping err:%s %s" % (
+                    type(item), e, e.args))
 
         wukong_pkg = self._talk_with_svr(
             wrap_queue_msg(
@@ -179,11 +186,9 @@ class WuKongQueueClient:
             self, block=True, timeout=None, convert_method: FunctionType = None,
     ):
         """
-        :param convert_method: function
-        :param block: ...
-        :param timeout: ...
-        note: about usage of `block` and `timeout`, see also stdlib
-        `queue.Queue.get` docstring
+        :param convert_method: function for convert item
+
+        Usage for block and timeout see also WuKongQueue.get
         """
 
         assert isinstance(block, bool), "wrong block arg type:%s" % type(block)
