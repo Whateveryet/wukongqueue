@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import logging
 import sys
-from unittest import TestCase, main
+from unittest import TestCase
 
 import time
 
@@ -64,7 +64,7 @@ class ClientTests(TestCase):
             self.assertIs(client.full(), True)
             self.assertIs(client.empty(), False)
 
-            self.assertEqual(client.get(), put_str.encode())
+            self.assertEqual(client.get(), put_str)
             self.assertEqual(client.get(), put_bytes)
 
             self.assertIs(client.full(), False)
@@ -139,7 +139,7 @@ class ClientTests(TestCase):
                 # wait for 1 secs, then raises <Full> exception
                 self.assertRaises(Full, client.put, item="1", timeout=1)
 
-                self.assertEqual(client.get(), b"1")
+                self.assertEqual(client.get(), "1")
                 # wait for 1 secs, then raises <Empty> exception
                 self.assertRaises(
                     Empty, client.get, block=True, timeout=1
@@ -257,6 +257,36 @@ class ClientTests(TestCase):
                 self.assertIs(join, True)
                 self.assertRaises(ValueError, client.task_done)
 
+    def test_all_type_item(self):
+        svr, mport = new_svr(max_size=0, log_level=logging.INFO)
+        with svr.helper():
+            with WuKongQueueClient(host=host, port=mport)as client:
+                test_item = [
+                    b'123',
+                    '123',
+                    123,
+                    123 - 1j,
+                    123.01,
+                    False,
+                    [True, False, 123],
+                    (True, False, 123),
+                    {"1": 123, "2": True, "3": [1, 2, 3]},
+                    {1, 2, 3},
+                    None
+                ]
+                for i in test_item:
+                    client.put(i)
+
+                recv_items = []
+                while True:
+                    try:
+                        i = client.get(block=False)
+                        recv_items.append(i)
+                    except Empty:
+                        break
+                self.assertEqual(test_item, recv_items)
+
 
 if __name__ == "__main__":
-    main()
+    import unittest
+    unittest.main()
