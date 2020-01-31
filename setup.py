@@ -8,7 +8,7 @@ from wukongqueue import __version__
 
 DIR = path.dirname(path.abspath(__file__))
 
-with open(path.join(DIR, "README.md")) as f:
+with open(path.join(DIR, "README.md"), encoding='utf8') as f:
     README = f.read()
 
 setup(
