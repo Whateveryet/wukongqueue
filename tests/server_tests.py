@@ -52,7 +52,7 @@ class ServerTests(TestCase):
             self.assertRaises(Full, svr.put, item="1", block=False)
             self.assertIs(svr.full(), True)
             self.assertIs(svr.empty(), False)
-            self.assertEqual(svr.get(), put_str.encode())
+            self.assertEqual(svr.get(), put_str)
             self.assertEqual(svr.get(), put_bytes)
 
             svr.close()

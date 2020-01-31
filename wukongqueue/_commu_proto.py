@@ -1,10 +1,11 @@
 # Protocol of communication
 
 import json
+import socket
 from base64 import b64encode, b64decode
 from copy import deepcopy
 
-import socket
+from .utils import Unify_encoding
 
 __all__ = [
     "read_wukong_data",
@@ -52,7 +53,7 @@ class WukongPkg:
     """customized communication msg package"""
 
     def __init__(
-        self, msg: bytes = b"", err=None, closed=False, encoding="utf8"
+        self, msg: bytes = b"", err=None, closed=False, encoding=Unify_encoding
     ):
         """
         :param msg: raw bytes
@@ -197,13 +198,12 @@ class TcpClient(TcpConn):
             raise e
 
 
-def wrap_queue_msg(
-    queue_cmd: bytes, args: dict = None, data: bytes = b""
-) -> bytes:
+def wrap_queue_msg(queue_cmd: bytes, args: dict = None, data=b"") -> bytes:
     # base64 does not contain ``*``
     # parameter `args` must be JSON serializable
     if args is None:
         args = {}
+
     return b"*".join(
         [
             b64encode(queue_cmd),
@@ -221,6 +221,7 @@ def unwrap_queue_msg(msg: bytes) -> dict:
     ret["cmd"] = b64decode(_lst[0])
     ret["args"] = json.loads(b64decode(_lst[1]).decode())
     ret["data"] = b64decode(_lst[2])
+
     return ret
 
 

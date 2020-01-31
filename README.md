@@ -13,6 +13,7 @@
 
 ### 特点
 * 快（基于tcp长连接通信）
+* 支持所有Python原生类型
 * 支持断开自动重连
 * 上手成本低，api使用和标准库[`queue`][1]保持一致
 * 可设置认证秘钥
@@ -77,13 +78,9 @@ clientA: all task done! (马上)
 clientB all task done! (马上)
 ```
 
-现在由于跨网络通信的原因，put方法仅支持传入字节或字符串序列，而get方法获取到的只会是字节序列，
-因为最终跨网络通信时都会以字节形式传输，后续会支持python全部数据类型，请拭目以待。
 
 [更多例子](https://github.com/chaseSpace/wukongqueue/blob/master/_examples)
 
-## PLAN
-- [ ] put/get支持Python所有基础数据类型
 
 ### [版本发布日志](https://github.com/chaseSpace/wukongqueue/blob/master/RELEASELOG.md)
 

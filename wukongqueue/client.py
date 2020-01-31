@@ -1,8 +1,8 @@
 from queue import Empty, Full
 from types import FunctionType
-from typing import Union
 
 from ._commu_proto import *
+from ._item_wrapper import item_wrapper, item_unwrap
 from .utils import *
 
 __all__ = [
@@ -14,6 +14,7 @@ __all__ = [
     "ClientsFull",
     "ConnectionFail",
     "CannotConcurrentCallBlockMethod",
+    "NotYetSupportType",
 ]
 
 
@@ -40,16 +41,20 @@ class CannotConcurrentCallBlockMethod(Exception):
     pass
 
 
+class NotYetSupportType(Exception):
+    pass
+
+
 class WuKongQueueClient:
     def __init__(
-            self,
-            host,
-            port,
-            *,
-            auto_reconnect=False,
-            pre_connect=False,
-            silence_err=False,
-            **kwargs
+        self,
+        host,
+        port,
+        *,
+        auto_reconnect=False,
+        pre_connect=False,
+        silence_err=False,
+        **kwargs
     ):
         """
         :param host: ...
@@ -84,7 +89,7 @@ class WuKongQueueClient:
         self._auth_key = None
         auth_key = kwargs.pop("auth_key", None)
         if auth_key is not None:
-            self._auth_key = md5(auth_key.encode("utf8"))
+            self._auth_key = md5(auth_key.encode(Unify_encoding))
 
         # some methods that will block cannot be called within
         # multi-threading
@@ -139,14 +144,13 @@ class WuKongQueueClient:
                     raise e
             return False
 
-    def put(
-            self,
-            item: Union[str, bytes],
-            block=True,
-            timeout=None,
-            encoding="utf8",
-    ):
-        assert type(item) in [bytes, str, ], "Unsupported type %s" % type(item)
+    def put(self, item, block=True, timeout=None, encoding=Unify_encoding):
+        """
+        :param item: item will be put in server's queue
+        :param encoding: not use now, just for compatibility.
+
+        Usage for block and timeout see also WuKongQueue.put
+        """
         assert isinstance(block, bool), "wrong block arg type:%s" % type(block)
         if timeout is not None:
             assert type(timeout) in [int, float], "invalid timeout"
@@ -155,14 +159,19 @@ class WuKongQueueClient:
             self._process_disconnect()
             return
 
-        if isinstance(item, str):
-            item = item.encode(encoding=encoding)
+        try:
+            item_wrapped = item_wrapper(item)
+        except Exception as e:
+            raise NotYetSupportType(
+                "%s is not supported yet, wrapping err:%s %s"
+                % (type(item), e, e.args)
+            )
 
         wukong_pkg = self._talk_with_svr(
             wrap_queue_msg(
                 queue_cmd=QUEUE_PUT,
                 args={"block": block, "timeout": timeout},
-                data=item,
+                data=item_wrapped,
             )
         )
 
@@ -175,20 +184,18 @@ class WuKongQueueClient:
         # wukong_pkg.raw_data == QUEUE_OK if put success!
 
     def get(
-            self, block=True, timeout=None, convert_method: FunctionType = None,
+        self, block=True, timeout=None, convert_method: FunctionType = None,
     ):
         """
-        :param convert_method: function
-        :param block: ...
-        :param timeout: ...
-        note: about usage of `block` and `timeout`, see also stdlib
-        `queue.Queue.get` docstring
+        :param convert_method: function for convert item
+
+        Usage for block and timeout see also WuKongQueue.get
         """
 
         assert isinstance(block, bool), "wrong block arg type:%s" % type(block)
         if convert_method is not None:
             assert callable(convert_method), (
-                    "not a callable obj:%s" % convert_method
+                "not a callable obj:%s" % convert_method
             )
         if timeout is not None:
             assert type(timeout) in [int, float], "invalid timeout"
@@ -211,9 +218,11 @@ class WuKongQueueClient:
             )
 
         ret = unwrap_queue_msg(wukong_pkg.raw_data)
+        item = item_unwrap(ret["data"])
+
         if convert_method:
-            return convert_method(ret["data"])
-        return ret["data"]
+            return convert_method(item)
+        return item
 
     def full(self) -> bool:
         """Whether the queue is full"""
@@ -405,11 +414,17 @@ class WuKongQueueClient:
         return wukong_pkg.raw_data == QUEUE_OK
 
     def _talk_with_svr(self, msg) -> WukongPkg:
-        if self.socket_commu_lock.locked():
+        if not self.socket_commu_lock.acquire(blocking=False):
+            self._tcp_client.close()
             raise CannotConcurrentCallBlockMethod
-        with self.socket_commu_lock:
-            self._tcp_client.write(msg)
-            return self._tcp_client.read()
+        self._tcp_client.write(msg)
+        ret = self._tcp_client.read()
+        # There is no need to use try to ensure the lock is closed,
+        # because the client's method does not allow multi-threaded calls,
+        # and the program should not continue to run when there is an exception
+        # it maybe a bug, just report it ~!
+        self.socket_commu_lock.release()
+        return ret
 
     def helper(self):
         """If the place client created isn't same with using,

@@ -8,7 +8,7 @@ from wukongqueue import __version__
 
 DIR = path.dirname(path.abspath(__file__))
 
-with open(path.join(DIR, "README.md")) as f:
+with open(path.join(DIR, "README.md"), encoding='utf8') as f:
     README = f.read()
 
 setup(
@@ -17,8 +17,8 @@ setup(
     version=__version__,
     author="chaseSpace",
     author_email="randomlilei@gmail.com",
-    description="A lightweight and convenient cross process FIFO queue service based on TCP protocol.",
-    keywords="cross process queue",
+    description="A lightweight and convenient cross network FIFO queue service based on TCP protocol.",
+    keywords="cross network queue",
     url="https://github.com/chaseSpace/WukongQueue",
     long_description=README,
     long_description_content_type="text/markdown",

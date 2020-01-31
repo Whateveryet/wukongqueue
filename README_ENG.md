@@ -14,6 +14,7 @@ A lightweight and easy-to-use cross network queue service implemented by pure Py
 
 ## Features
 * Fast (directly based on tcp long-running connection)
+* Supports all Python basic type
 * Supports automatically reconnect when disconnected
 * Easy to use, APIs' usage like stdlib [`queue`][1]
 * Allow to set authentication key for connection to server
@@ -78,14 +79,9 @@ clientA: all task done!
 clientB all task done! (same as clientA last print)
 ```
 
-Currently, the get and put methods on the server and client only support bytes
-and strings, Because in the end, they still communicate between processes in bytes.
-But the support for all Python data types is **TODO**, please wait a moment.
 
 [more examples](https://github.com/chaseSpace/wukongqueue/blob/master/_examples)
 
-## PLAN
-- [ ] Support all Python basic data type
 
 ## [Release log](https://github.com/chaseSpace/wukongqueue/blob/master/RELEASELOG.md)
 
