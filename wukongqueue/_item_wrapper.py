@@ -5,18 +5,17 @@ from typing import Any
 from .utils import Unify_encoding
 
 type_name_map = {
-    bytes: b'byte',
-    str: b'str',
-    int: b'int',
-    complex: b'complex',
-    float: b'float',
-    bool: b'bool',
-
-    list: b'list',
-    tuple: b'tuple',
-    dict: b'dict',
-    set: b'set',
-    type(None): b'NoneType'
+    bytes: b"byte",
+    str: b"str",
+    int: b"int",
+    complex: b"complex",
+    float: b"float",
+    bool: b"bool",
+    list: b"list",
+    tuple: b"tuple",
+    dict: b"dict",
+    set: b"set",
+    type(None): b"NoneType",
 }
 
 type_name_map_reversed = {v: k for k, v in type_name_map.items()}
@@ -37,6 +36,7 @@ def item_wrapper(item: Any) -> bytes:
 
 def item_unwrap(item_pickled: bytes) -> Any:
     return pickle.loads(item_pickled, encoding=Unify_encoding)
+
 
 # def item_wrapper(item: Any, encoding) -> ItemWrapped:
 #     ret = ItemWrapped()
