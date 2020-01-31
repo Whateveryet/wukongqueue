@@ -14,7 +14,7 @@ __all__ = [
     "ClientsFull",
     "ConnectionFail",
     "CannotConcurrentCallBlockMethod",
-    "NotYetSupportType"
+    "NotYetSupportType",
 ]
 
 
@@ -47,14 +47,14 @@ class NotYetSupportType(Exception):
 
 class WuKongQueueClient:
     def __init__(
-            self,
-            host,
-            port,
-            *,
-            auto_reconnect=False,
-            pre_connect=False,
-            silence_err=False,
-            **kwargs
+        self,
+        host,
+        port,
+        *,
+        auto_reconnect=False,
+        pre_connect=False,
+        silence_err=False,
+        **kwargs
     ):
         """
         :param host: ...
@@ -163,8 +163,9 @@ class WuKongQueueClient:
             item_wrapped = item_wrapper(item)
         except Exception as e:
             raise NotYetSupportType(
-                "%s is not supported yet, wrapping err:%s %s" % (
-                    type(item), e, e.args))
+                "%s is not supported yet, wrapping err:%s %s"
+                % (type(item), e, e.args)
+            )
 
         wukong_pkg = self._talk_with_svr(
             wrap_queue_msg(
@@ -183,7 +184,7 @@ class WuKongQueueClient:
         # wukong_pkg.raw_data == QUEUE_OK if put success!
 
     def get(
-            self, block=True, timeout=None, convert_method: FunctionType = None,
+        self, block=True, timeout=None, convert_method: FunctionType = None,
     ):
         """
         :param convert_method: function for convert item
@@ -194,7 +195,7 @@ class WuKongQueueClient:
         assert isinstance(block, bool), "wrong block arg type:%s" % type(block)
         if convert_method is not None:
             assert callable(convert_method), (
-                    "not a callable obj:%s" % convert_method
+                "not a callable obj:%s" % convert_method
             )
         if timeout is not None:
             assert type(timeout) in [int, float], "invalid timeout"
