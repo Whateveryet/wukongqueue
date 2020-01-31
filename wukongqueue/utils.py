@@ -5,6 +5,8 @@ import logging
 import sys
 import threading
 
+Unify_encoding = "utf-8"
+
 
 class helper:
     """used by WuKongQueueClient and WuKongQueue"""
