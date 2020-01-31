@@ -1,4 +1,7 @@
 ## Release log
+#### v0.0.6a1
+Support all python basic type
+
 #### v0.0.5
 Same to v0.0.5rc1
 
