@@ -103,7 +103,7 @@ class WuKongQueue:
 
     def _prepare_process(self, auth_key):
         if auth_key is not None:
-            self._auth_key = md5(auth_key.encode("utf8"))
+            self._auth_key = md5(auth_key.encode(Unify_encoding))
         else:
             self._auth_key = None
 
@@ -158,7 +158,7 @@ class WuKongQueue:
         return len(self.queue)
 
     def get(
-            self, block=True, timeout=None, convert_method: FunctionType = None,
+        self, block=True, timeout=None, convert_method: FunctionType = None,
     ) -> bytes:
         """Remove and return an item from the queue.
         :param block
@@ -195,14 +195,9 @@ class WuKongQueue:
             return convert_method(item) if convert_method else item
 
     def put(
-            self,
-            item,
-            block=True,
-            timeout=None,
-            encoding="utf8",
+        self, item, block=True, timeout=None, encoding=Unify_encoding,
     ):
         """Put an item into the queue.
-
         :param item: value for put
         :param block
         :param timeout
@@ -421,8 +416,10 @@ class WuKongQueue:
                         write_wukong_data(
                             conn,
                             WukongPkg(
-                                wrap_queue_msg(queue_cmd=QUEUE_DATA,
-                                               data=item_wrapper(item))
+                                wrap_queue_msg(
+                                    queue_cmd=QUEUE_DATA,
+                                    data=item_wrapper(item),
+                                )
                             ),
                         )
 
@@ -430,8 +427,9 @@ class WuKongQueue:
                 elif cmd == QUEUE_PUT:
                     try:
                         self.put(
-                            item_unwrap(data), block=args["block"],
-                            timeout=args["timeout"]
+                            item_unwrap(data),
+                            block=args["block"],
+                            timeout=args["timeout"],
                         )
                     except Full:
                         write_wukong_data(conn, WukongPkg(QUEUE_FULL))
@@ -517,7 +515,7 @@ class WuKongQueue:
                 elif cmd == QUEUE_JOIN:
                     self.join()
                     write_wukong_data(
-                        conn, WukongPkg(wrap_queue_msg(queue_cmd=QUEUE_OK, ))
+                        conn, WukongPkg(wrap_queue_msg(queue_cmd=QUEUE_OK,))
                     )
                 else:
                     raise UnknownCmd(cmd)
