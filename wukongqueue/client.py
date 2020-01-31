@@ -1,8 +1,8 @@
 from queue import Empty, Full
 from types import FunctionType
-from typing import Union
 
 from ._commu_proto import *
+from ._item_wrapper import item_wrapper, item_unwrap
 from .utils import *
 
 __all__ = [
@@ -36,6 +36,10 @@ class AuthenticationFail(Exception):
 class CannotConcurrentCallBlockMethod(Exception):
     """client cannot call block method within multi-threading
     """
+    pass
+
+
+class NotYetSupportType(Exception):
     pass
 
 
@@ -140,12 +144,11 @@ class WuKongQueueClient:
 
     def put(
             self,
-            item: Union[str, bytes],
+            item,
             block=True,
             timeout=None,
-            encoding="utf8",
+            encoding=Unify_encoding,
     ):
-        assert type(item) in [bytes, str, ], "Unsupported type %s" % type(item)
         assert isinstance(block, bool), "wrong block arg type:%s" % type(block)
         if timeout is not None:
             assert type(timeout) in [int, float], "invalid timeout"
@@ -154,14 +157,13 @@ class WuKongQueueClient:
             self._process_disconnect()
             return
 
-        if isinstance(item, str):
-            item = item.encode(encoding=encoding)
+        item_wrapped = item_wrapper(item)
 
         wukong_pkg = self._talk_with_svr(
             wrap_queue_msg(
                 queue_cmd=QUEUE_PUT,
                 args={"block": block, "timeout": timeout},
-                data=item,
+                data=item_wrapped,
             )
         )
 
@@ -210,9 +212,11 @@ class WuKongQueueClient:
             )
 
         ret = unwrap_queue_msg(wukong_pkg.raw_data)
+        item = item_unwrap(ret["data"])
+
         if convert_method:
-            return convert_method(ret["data"])
-        return ret["data"]
+            return convert_method(item)
+        return item
 
     def full(self) -> bool:
         """Whether the queue is full"""

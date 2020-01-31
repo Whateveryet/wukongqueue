@@ -1,10 +1,11 @@
 # Protocol of communication
 
 import json
+import socket
 from base64 import b64encode, b64decode
 from copy import deepcopy
 
-import socket
+from ._item_wrapper import item_wrapper, item_unwrap
 
 __all__ = [
     "read_wukong_data",
@@ -52,7 +53,7 @@ class WukongPkg:
     """customized communication msg package"""
 
     def __init__(
-        self, msg: bytes = b"", err=None, closed=False, encoding="utf8"
+            self, msg: bytes = b"", err=None, closed=False, encoding="utf8"
     ):
         """
         :param msg: raw bytes
@@ -106,7 +107,7 @@ def read_wukong_data(conn: socket.socket) -> WukongPkg:
 
         buffer.append(data[:bye_index])
         if len(data) < bye_index + delimiter_len:
-            _STREAM_BUFFER.append(data[bye_index + delimiter_len :])
+            _STREAM_BUFFER.append(data[bye_index + delimiter_len:])
         break
     msg = b"".join(buffer).replace(delimiter_escape, delimiter)
     ret = WukongPkg(msg)
@@ -133,7 +134,7 @@ def write_wukong_data(conn: socket.socket, msg: WukongPkg) -> (bool, str):
 
     while sent_index < _bytes_msg_len:
         sent_index = 0 if sent_index == -1 else sent_index
-        will_send_data = _bytes_msg[sent_index : sent_index + MAX_BYTES]
+        will_send_data = _bytes_msg[sent_index: sent_index + MAX_BYTES]
         if not _send_msg(will_send_data):
             return False, err
         sent_index += MAX_BYTES
@@ -198,17 +199,17 @@ class TcpClient(TcpConn):
 
 
 def wrap_queue_msg(
-    queue_cmd: bytes, args: dict = None, data: bytes = b""
-) -> bytes:
+        queue_cmd: bytes, args: dict = None, data=b'') -> bytes:
     # base64 does not contain ``*``
     # parameter `args` must be JSON serializable
     if args is None:
         args = {}
+
     return b"*".join(
         [
             b64encode(queue_cmd),
             b64encode(json.dumps(args).encode()),
-            b64encode(data),
+            b64encode(data)
         ]
     )
 
@@ -221,6 +222,7 @@ def unwrap_queue_msg(msg: bytes) -> dict:
     ret["cmd"] = b64decode(_lst[0])
     ret["args"] = json.loads(b64decode(_lst[1]).decode())
     ret["data"] = b64decode(_lst[2])
+
     return ret
 
 

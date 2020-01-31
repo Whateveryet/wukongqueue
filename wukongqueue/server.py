@@ -3,13 +3,13 @@ A small and convenient cross process FIFO queue service based on
 TCP protocol.
 """
 from collections import deque
-
 from queue import Full, Empty
 from time import monotonic as time
 from types import FunctionType
 from typing import Union
 
 from ._commu_proto import *
+from ._item_wrapper import item_unwrap, item_wrapper
 from .utils import *
 
 __all__ = ["WuKongQueue", "new_thread", "Full", "Empty"]
@@ -196,7 +196,7 @@ class WuKongQueue:
 
     def put(
             self,
-            item: Union[bytes, str],
+            item,
             block=True,
             timeout=None,
             encoding="utf8",
@@ -216,10 +216,6 @@ class WuKongQueue:
         :param encoding: if item type is string, we will convert it into
         bytes with given encoding.
         """
-        assert type(item) in [bytes, str, ], "Unsupported type %s" % type(item)
-        if type(item) is str:
-            item = item.encode(encoding=encoding)
-
         with self.not_full:
             if self.maxsize > 0:
                 if not block:
@@ -425,7 +421,8 @@ class WuKongQueue:
                         write_wukong_data(
                             conn,
                             WukongPkg(
-                                wrap_queue_msg(queue_cmd=QUEUE_DATA, data=item)
+                                wrap_queue_msg(queue_cmd=QUEUE_DATA,
+                                               data=item_wrapper(item))
                             ),
                         )
 
@@ -433,7 +430,8 @@ class WuKongQueue:
                 elif cmd == QUEUE_PUT:
                     try:
                         self.put(
-                            data, block=args["block"], timeout=args["timeout"]
+                            item_unwrap(data), block=args["block"],
+                            timeout=args["timeout"]
                         )
                     except Full:
                         write_wukong_data(conn, WukongPkg(QUEUE_FULL))
