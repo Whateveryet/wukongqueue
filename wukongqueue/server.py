@@ -453,7 +453,7 @@ class WuKongQueue:
                 elif cmd == QUEUE_PUT:
                     try:
                         self.put(
-                            data, block=args["block"], timeout=args["timeout"],
+                            data, block=args["block"], timeout=args["timeout"]
                         )
                     except Full:
                         write_wukong_data(conn, WuKongPkg(QUEUE_FULL))
