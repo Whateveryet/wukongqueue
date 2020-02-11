@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 import time
 from unittest import TestCase
-
+import sys
+sys.path.append('../')
 from wukongqueue import *
 
 max_size = 2
