@@ -31,6 +31,7 @@ class Connection:
             socket_timeout=None,
             socket_connect_timeout=None,
             silence_err=True,
+            log_level=logging.DEBUG,
             logger=None,
             encoding=None,
             encoding_err=None,
@@ -45,7 +46,8 @@ class Connection:
         self.check_health_interval = 30
         if check_health_interval:
             self.check_health_interval = check_health_interval
-        self._logger = logger or get_logger(self, logging.DEBUG)
+        # if `logger` is None, `log_level` will be set with new logger
+        self._logger = logger or get_logger(self, log_level)
         self._silence_err = silence_err
         self._tcp_client = None
         self._last_check_health_time = int(time.time())
@@ -217,8 +219,8 @@ class ConnectionPool:
         self.connection_kwargs = connection_kwargs
 
         self.server_addr = (
-            connection_kwargs.get("host"),
-            connection_kwargs.get("port"),
+            connection_kwargs["host"],
+            connection_kwargs["port"],
         )
 
         self._lock = threading.RLock()
