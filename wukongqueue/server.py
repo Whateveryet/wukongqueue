@@ -41,7 +41,7 @@ class _WkSvrHelper:
 
 class WuKongQueue:
     def __init__(
-            self, host="localhost", port=8848, name="", maxsize=0, **kwargs
+        self, host="localhost", port=8848, name="", maxsize=0, **kwargs
     ):
         """
         :param host: host for queue server listen
@@ -498,7 +498,7 @@ class WuKongQueue:
                     write_wukong_data(
                         conn,
                         WuKongPkg(
-                            wrap_queue_msg(queue_cmd=QUEUE_DATA, data=clients, )
+                            wrap_queue_msg(queue_cmd=QUEUE_DATA, data=clients,)
                         ),
                     )
 

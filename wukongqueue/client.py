@@ -16,14 +16,14 @@ from .utils import Unify_encoding, get_logger, md5, helper
 
 class WuKongQueueClient:
     def __init__(
-            self,
-            host="localhost",
-            port=8848,
-            auth_key=None,
-            socket_connect_timeout=None,
-            connection_pool=None,
-            silence_err=False,
-            **kwargs
+        self,
+        host="localhost",
+        port=8848,
+        auth_key=None,
+        socket_connect_timeout=None,
+        connection_pool=None,
+        silence_err=False,
+        **kwargs
     ):
         """
         :param host: host
@@ -109,7 +109,7 @@ class WuKongQueueClient:
         :param timeout: see also WuKongQueue.put
         """
         assert type(timeout) in [int, float, type(None)], (
-                "invalid timeout %s" % timeout
+            "invalid timeout %s" % timeout
         )
         try:
             cmd = wrap_queue_msg(
@@ -142,11 +142,11 @@ class WuKongQueueClient:
         """
         if convert_method:
             assert callable(convert_method), (
-                    "not a callable obj:%s" % convert_method
+                "not a callable obj:%s" % convert_method
             )
 
         assert type(timeout) in [int, float, type(None)], (
-                "invalid timeout %s" % timeout
+            "invalid timeout %s" % timeout
         )
 
         cmd = wrap_queue_msg(
