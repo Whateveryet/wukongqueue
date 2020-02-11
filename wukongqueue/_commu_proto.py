@@ -60,7 +60,7 @@ _queue_msg_except_index = 3
 
 
 def wrap_queue_msg(
-    queue_cmd: bytes, args={}, data=None, exception=None
+        queue_cmd: bytes, args={}, data=None, exception=None
 ) -> bytes:
     # base64 does not contain `*`
     item_wrapped = item_wrapper(data)
@@ -134,7 +134,8 @@ MAX_BYTES = 1 << 12
 _STREAM_BUFFER = []
 
 
-def read_wukong_data(conn: socket.socket) -> WuKongPkg:
+def read_wukong_data(conn: socket.socket,
+                     ignore_socket_timeout=False) -> WuKongPkg:
     """Block read from tcp socket connection"""
     global _STREAM_BUFFER
 
@@ -144,6 +145,10 @@ def read_wukong_data(conn: socket.socket) -> WuKongPkg:
     while True:
         try:
             data = conn.recv(MAX_BYTES)
+        except socket.timeout as e:
+            if ignore_socket_timeout:
+                continue
+            return WuKongPkg(err="%s,%s" % (socket.timeout, e.args))
         except socket.error as e:
             return WuKongPkg(err="%s,%s" % (e.__class__, e.args))
         # if data is empty byte,that represents the conn was closed by peer.
@@ -157,7 +162,7 @@ def read_wukong_data(conn: socket.socket) -> WuKongPkg:
 
         buffer.append(data[:bye_index])
         if len(data) < bye_index + delimiter_len:
-            _STREAM_BUFFER.append(data[bye_index + delimiter_len :])
+            _STREAM_BUFFER.append(data[bye_index + delimiter_len:])
         break
     msg = b"".join(buffer).replace(delimiter_escape, delimiter)
     ret = WuKongPkg(msg)
@@ -177,14 +182,14 @@ def write_wukong_data(conn: socket.socket, msg: WuKongPkg) -> (bool, str):
         try:
             conn.send(msg)
             return True
-        except Exception as e:
+        except socket.error as e:
             nonlocal err
             err = "%s,%s" % (e.__class__, e.args)
             return False
 
     while sent_index < _bytes_msg_len:
         sent_index = 0 if sent_index == -1 else sent_index
-        will_send_data = _bytes_msg[sent_index : sent_index + MAX_BYTES]
+        will_send_data = _bytes_msg[sent_index: sent_index + MAX_BYTES]
         if not _send_msg(will_send_data):
             return False, err
         sent_index += MAX_BYTES
