@@ -13,6 +13,7 @@
 
 ### 特点
 * 快（基于tcp长连接通信）
+* 支持多线程调用（连接池）
 * 支持所有Python原生类型
 * 支持断开自动重连
 * 上手成本低，api使用和标准库[`queue`][1]保持一致
@@ -31,15 +32,14 @@
 from wukongqueue import WuKongQueue
 import time
 # start a queue server
-svr = WuKongQueue(host='127.0.0.1',port=666,max_conns=10,max_size=0)
+svr = WuKongQueue(host='127.0.0.1', port=666, max_conns=10, max_size=0)
 with svr:
     print("svr is started!")
     svr.put(b"1")
-    time.sleep(10)
     svr.put(b"2")
-    print("wait for clients...")
+    print("putted b'1' and b'2', wait for clients...")
     time.sleep(10)
-print("putted b'1' and b'2', svr closed!")
+print("svr closed!")
 ```
 
 ##### clientA.py
@@ -47,9 +47,13 @@ print("putted b'1' and b'2', svr closed!")
 from wukongqueue import WuKongQueueClient
 client = WuKongQueueClient(host='127.0.0.1', port=666)
 with client:
-    print("got",client.get()) # b"1"
+    print("got", client.get())  # b"1"
     client.task_done()
-    print("after 10 seconds, got",client.get(block=True)) # wait for 3 seconds, then print b"2"
+    import time
+    wait = 5
+    time.sleep(wait)
+    print("after %s seconds, got" % wait,
+          client.get(block=True))  # wait for a while, then print b"2"
     client.task_done()
     print("clientA: all task done!")
 ```
@@ -66,21 +70,23 @@ with client:
 ```
 # server.py 首先打印
 svr is started! (马上)
-wait for clients... (3秒后)
-putted b'1' and b'2', svr closed! (10秒后)
+putted b'1' and b'2', wait for clients... (马上)
+svr closed! (10秒后)
 
 # clientA print secondly
 got b'1' (马上)
-after 3 seconds, got b'2' (3秒后)
+after 5 seconds, got b'2' (5秒后)
 clientA: all task done! (马上)
 
 # clientB print lastly
-clientB all task done! (马上)
+clientB all task done! (与clientA的all task done同步)
 ```
 
 
 [更多例子](https://github.com/chaseSpace/wukongqueue/blob/master/_examples)
 
+### TODO
+- [ ] 持久化
 
 ### [版本发布日志](https://github.com/chaseSpace/wukongqueue/blob/master/RELEASELOG.md)
 

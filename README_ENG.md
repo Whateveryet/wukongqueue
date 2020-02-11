@@ -32,15 +32,14 @@ A lightweight and easy-to-use cross network queue service implemented by pure Py
 from wukongqueue import WuKongQueue
 import time
 # start a queue server
-svr = WuKongQueue(host='127.0.0.1',port=666,max_conns=10,max_size=0)
+svr = WuKongQueue(host='127.0.0.1', port=666, max_conns=10, max_size=0)
 with svr:
     print("svr is started!")
     svr.put(b"1")
-    time.sleep(10)
     svr.put(b"2")
-    print("wait for clients...")
+    print("putted b'1' and b'2', wait for clients...")
     time.sleep(10)
-print("putted b'1' and b'2', svr closed!")
+print("svr closed!")
 ```
 
 ##### clientA.py
@@ -48,9 +47,13 @@ print("putted b'1' and b'2', svr closed!")
 from wukongqueue import WuKongQueueClient
 client = WuKongQueueClient(host='127.0.0.1', port=666)
 with client:
-    print("got",client.get()) # b"1"
+    print("got", client.get())  # b"1"
     client.task_done()
-    print("after 10 seconds, got",client.get(block=True)) # wait for 3 seconds, then print b"2"
+    import time
+    wait = 5
+    time.sleep(wait)
+    print("after %s seconds, got" % wait,
+          client.get(block=True))  # wait for a while, then print b"2"
     client.task_done()
     print("clientA: all task done!")
 ```
@@ -67,21 +70,22 @@ Then start these three program in order, you can see the following print:
 ```
 # server.py print firstly
 svr is started! (immediately)
-wait for clients... (+3 seconds)
-putted b'1' and b'2', svr closed! (+10s)
+putted b'1' and b'2', wait for clients... (immediately)
+svr closed! (+10s)
 
 # clientA print secondly
 got b'1' (immediately)
-after 3 seconds, got b'2' (+3 seconds)
+after 5 seconds, got b'2' (+5 seconds)
 clientA: all task done!
 
 # clientB print lastly
 clientB all task done! (same as clientA last print)
 ```
 
-
 [more examples](https://github.com/chaseSpace/wukongqueue/blob/master/_examples)
 
+## TODO
+- [ ] Data Persistence
 
 ## [Release log](https://github.com/chaseSpace/wukongqueue/blob/master/RELEASELOG.md)
 
