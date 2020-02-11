@@ -366,13 +366,13 @@ class WuKongQueue:
             )
 
     def _run(self):
+        self.on_running()
         while True:
             try:
                 conn, addr = self._tcp_svr.accept()
                 conn.settimeout(self.socket_connect_timeout)
             except OSError:
                 return
-            self.on_running()
             client_stat = _ClientStatistic(client_addr=addr, conn=conn)
             with self._statistic_lock:
                 if self.max_clients > 0:
