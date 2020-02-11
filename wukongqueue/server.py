@@ -61,7 +61,8 @@ class WuKongQueue:
         the client does not need authentication
 
         socket_connect_timeout: maximum socket operations time allowed during
-        connection establishment
+        connection establishment, client's tcp connection with established
+        connections but not authenticated in time will be disconnected
 
         socket_timeout: maximum socket operations time allowed after successful
         connection, prevent the client from disconnecting in a way that the
