@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 from wukongqueue._item_wrapper import *
-from wukongqueue.utils import Unify_encoding
 
 test_item = [
     b'',
