@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
-import logging
 import sys
 from unittest import TestCase, main
-
 sys.path.append("../")
 from wukongqueue import *
 
