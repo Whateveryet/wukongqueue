@@ -71,7 +71,6 @@ class WuKongQueue:
         self.addr = (host, port)
 
         self.max_clients = kwargs.pop("max_clients", 0)
-        self._tcp_svr = TcpSvr(host, port)
         log_level = kwargs.pop("log_level", logging.DEBUG)
         self._logger = get_logger(self, log_level)
         self.socket_connect_timeout = kwargs.pop("socket_connect_timeout", 30)
@@ -375,6 +374,7 @@ class WuKongQueue:
             )
 
     def _run(self):
+        self._tcp_svr = TcpSvr(*self.addr)
         self.on_running()
         while True:
             try:
