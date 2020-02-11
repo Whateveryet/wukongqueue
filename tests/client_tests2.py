@@ -119,7 +119,7 @@ class ClientTests(TestCase):
 
     def test_check_health(self):
         port = 65534
-        itvl = 1
+        itvl = 30
         with WuKongQueueClient(host=host,
                                port=port,
                                check_health_interval=1)as client:
@@ -131,6 +131,22 @@ class ClientTests(TestCase):
                 self.assertRaises(Empty, client.get, block=False)
             self.assertEqual(len(client.connection_pool._available_connections),
                              1)
+            svr.close()
+
+    def test_auto_reconnect(self):
+        svr, mport = new_svr(max_size=max_size)
+        client = WuKongQueueClient(host=host,
+                                   port=mport,
+                                   check_health_interval=1)
+        with client:
+            client.full()
+            svr.close()
+            self.assertRaises(ConnectionError, client.full)
+            self.assertRaises(ConnectionError, client.full)
+            svr.run()
+            # wait health check time is up, then try recover connection
+            time.sleep(1)
+            client.full()
             svr.close()
 
 
