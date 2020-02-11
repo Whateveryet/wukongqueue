@@ -1,4 +1,11 @@
 ## Release log
+#### v0.0.6a2
+this is a bigger update
+* Revoke WuKongQueueClient class's arg `auto_reconnect`,`pre_conn`, treat 
+reconnection as default
+* refactor client.py
+* add connection pool
+
 #### v0.0.6a1
 * Support all python basic type
 * Optimize the part about communication Lock of the internal method 
