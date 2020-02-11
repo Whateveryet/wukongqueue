@@ -25,7 +25,6 @@ class _ClientStatistic:
         self.client_addr = client_addr
         self.me = str(client_addr)
         self.conn = conn
-        self.is_authenticated = False
 
 
 class _WkSvrHelper:
@@ -42,7 +41,7 @@ class _WkSvrHelper:
 
 class WuKongQueue:
     def __init__(
-        self, host="localhost", port=8848, name="", maxsize=0, **kwargs
+            self, host="localhost", port=8848, name="", maxsize=0, **kwargs
     ):
         """
         :param host: host for queue server listen
@@ -345,7 +344,6 @@ class WuKongQueue:
                 args = reply_msg.queue_params_object.args
                 if cmd == QUEUE_AUTH_KEY:
                     if args["auth_key"] == self._auth_key:
-                        client_stat.is_authenticated = True
                         write_wukong_data(conn, WuKongPkg(QUEUE_OK))
                         return True
                     else:
@@ -500,7 +498,7 @@ class WuKongQueue:
                     write_wukong_data(
                         conn,
                         WuKongPkg(
-                            wrap_queue_msg(queue_cmd=QUEUE_DATA, data=clients,)
+                            wrap_queue_msg(queue_cmd=QUEUE_DATA, data=clients, )
                         ),
                     )
 
