@@ -5,12 +5,13 @@ import socket
 from base64 import b64encode, b64decode
 from copy import deepcopy
 
+from ._item_wrapper import item_wrapper, item_unwrap
 from .utils import Unify_encoding
 
 __all__ = [
     "read_wukong_data",
     "write_wukong_data",
-    "WukongPkg",
+    "WuKongPkg",
     "TcpSvr",
     "TcpClient",
     "wrap_queue_msg",
@@ -43,39 +44,88 @@ class SupportBytesOnly(Exception):
     pass
 
 
-# stream delimiter
-delimiter = b"bye:)"
-delimiter_escape = b"bye:]"
-delimiter_len = len(delimiter)
+class QueueParamsObject:
+    def __init__(self, cmd=b"", data=None, args={}, exception=None):
+        self.cmd = cmd
+        self.data = data
+        self.args = args
+        self.exception = exception
 
 
-class WukongPkg:
-    """customized communication msg package"""
+_queue_msg_delimiter = b"*"
+_queue_msg_cmd_index = 0
+_queue_msg_args_index = 1
+_queue_msg_data_index = 2
+_queue_msg_except_index = 3
 
-    def __init__(
-        self, msg: bytes = b"", err=None, closed=False, encoding=Unify_encoding
-    ):
+
+def wrap_queue_msg(
+    queue_cmd: bytes, args={}, data=None, exception=None
+) -> bytes:
+    # base64 does not contain `*`
+    item_wrapped = item_wrapper(data)
+    return _queue_msg_delimiter.join(
+        [
+            b64encode(queue_cmd),
+            b64encode(json.dumps(args).encode(Unify_encoding)),
+            b64encode(item_wrapped),
+            b64encode(item_wrapper(exception)),
+        ]
+    )
+
+
+def unwrap_queue_msg(msg: bytes) -> QueueParamsObject:
+    lst = msg.split(_queue_msg_delimiter)
+    ret = QueueParamsObject(cmd=lst[_queue_msg_cmd_index])
+    if len(lst) == 1:
+        return ret
+    ret.cmd = b64decode(lst[_queue_msg_cmd_index])
+    ret.args = json.loads(
+        b64decode(lst[_queue_msg_args_index]).decode(Unify_encoding)
+    )
+    ret.data = item_unwrap(b64decode(lst[_queue_msg_data_index]))
+    ret.exception = item_unwrap(b64decode(lst[_queue_msg_except_index]))
+    return ret
+
+
+class WuKongPkg:
+    """Customized socket communication message package"""
+
+    def __init__(self, msg: bytes = b"", err=None, is_socket_closed=False):
         """
         :param msg: raw bytes
         :param err: error encountered reading socket
-        :param closed: whether the socket is closed.
+        :param is_socket_closed: whether the socket is closed.
         """
         if not isinstance(msg, bytes):
             raise SupportBytesOnly("Support bytes only")
         self.raw_data = msg
         self.err = err
-        self.encoding = encoding
-        self.closed = closed
+        self.is_socket_closed = is_socket_closed
+        self.queue_params_object = None
 
     def __repr__(self):
-        return self.raw_data.decode(encoding=self.encoding)
+        return "%s<msg_length:%s, is_socket_closed:%s>" % (
+            type(self).__name__,
+            len(self.raw_data),
+            self.is_socket_closed,
+        )
 
     def __bool__(self):
         return len(self.raw_data) > 0
 
     def is_valid(self) -> bool:
-        return any([self.closed, self.err]) is False
+        return any([self.is_socket_closed, self.err]) is False
 
+    def unwrap(self):
+        """unwrap raw data bytes to readable obj"""
+        self.queue_params_object = unwrap_queue_msg(self.raw_data)
+
+
+# stream delimiter
+delimiter = b"bye:)"
+delimiter_escape = b"bye:]"
+delimiter_len = len(delimiter)
 
 # max read/write to 4KB
 MAX_BYTES = 1 << 12
@@ -84,7 +134,7 @@ MAX_BYTES = 1 << 12
 _STREAM_BUFFER = []
 
 
-def read_wukong_data(conn: socket.socket) -> WukongPkg:
+def read_wukong_data(conn: socket.socket) -> WuKongPkg:
     """Block read from tcp socket connection"""
     global _STREAM_BUFFER
 
@@ -94,11 +144,11 @@ def read_wukong_data(conn: socket.socket) -> WukongPkg:
     while True:
         try:
             data = conn.recv(MAX_BYTES)
-        except Exception as e:
-            return WukongPkg(err="%s,%s" % (e.__class__, e.args))
+        except socket.error as e:
+            return WuKongPkg(err="%s,%s" % (e.__class__, e.args))
         # if data is empty byte,that represents the conn was closed by peer.
         if data == b"":
-            return WukongPkg(closed=True)
+            return WuKongPkg(is_socket_closed=True)
 
         bye_index = data.find(delimiter)
         if bye_index == -1:
@@ -110,11 +160,11 @@ def read_wukong_data(conn: socket.socket) -> WukongPkg:
             _STREAM_BUFFER.append(data[bye_index + delimiter_len :])
         break
     msg = b"".join(buffer).replace(delimiter_escape, delimiter)
-    ret = WukongPkg(msg)
+    ret = WuKongPkg(msg)
     return ret
 
 
-def write_wukong_data(conn: socket.socket, msg: WukongPkg) -> (bool, str):
+def write_wukong_data(conn: socket.socket, msg: WuKongPkg) -> (bool, str):
     """NOTE: Sending an empty string is allowed"""
 
     # `+delimiter` ensure never send a empty byte to peer
@@ -143,19 +193,20 @@ def write_wukong_data(conn: socket.socket, msg: WukongPkg) -> (bool, str):
 
 
 class TcpConn:
-    def __init__(self):
-        self.skt = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    def __init__(self, conn_timeout=None):
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.settimeout(conn_timeout)
         self.err = None
 
     def write(self, data) -> bool:
-        ok, self.err = write_wukong_data(self.skt, WukongPkg(data))
+        ok, self.err = write_wukong_data(self.sock, WuKongPkg(data))
         return ok
 
     def read(self):
-        return read_wukong_data(self.skt)
+        return read_wukong_data(self.sock)
 
     def close(self):
-        self.skt.close()
+        self.sock.close()
 
 
 class TcpSvr(TcpConn):
@@ -166,63 +217,34 @@ class TcpSvr(TcpConn):
         """
         super().__init__()
         try:
-            self.skt.bind((host, port))
-        except OSError as e:
-            self.skt.close()
-            raise e
+            self.sock.bind((host, port))
+        except OSError:
+            self.sock.close()
+            raise
 
         # the backlog parameter is commonly set a large value to
         # handle High concurrent connection requests, It's enough
         # to set 0 here.
         # https://tangentsoft.net/wskfaq/advanced.html#backlog
         # https://www.mkssoftware.com/docs/man3/listen.3.asp
-        self.skt.listen(0)
+        self.sock.listen(0)
 
     def accept(self):
-        return self.skt.accept()
+        return self.sock.accept()
 
 
 class TcpClient(TcpConn):
-    def __init__(self, host, port):
+    def __init__(self, host, port, conn_timeout):
         """
         :param host: ...
         :param port: ...
-        :param pre_connect: declare a connection previously, establish
-        a real connection when you want to communicate
         """
-        super().__init__()
+        super().__init__(conn_timeout=conn_timeout)
         try:
-            self.skt.connect((host, port))
-        except Exception as e:
-            self.skt.close()
-            raise e
-
-
-def wrap_queue_msg(queue_cmd: bytes, args: dict = None, data=b"") -> bytes:
-    # base64 does not contain ``*``
-    # parameter `args` must be JSON serializable
-    if args is None:
-        args = {}
-
-    return b"*".join(
-        [
-            b64encode(queue_cmd),
-            b64encode(json.dumps(args).encode()),
-            b64encode(data),
-        ]
-    )
-
-
-def unwrap_queue_msg(msg: bytes) -> dict:
-    _lst = msg.split(b"*")
-    ret = {"cmd": _lst[0], "data": b"", "args": {}, "err": ""}
-    if len(_lst) == 1:
-        return ret
-    ret["cmd"] = b64decode(_lst[0])
-    ret["args"] = json.loads(b64decode(_lst[1]).decode())
-    ret["data"] = b64decode(_lst[2])
-
-    return ret
+            self.sock.connect((host, port))
+        except socket.error:
+            self.sock.close()
+            raise
 
 
 def _check_all_queue_cmds():
