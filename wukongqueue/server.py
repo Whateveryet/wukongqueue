@@ -41,7 +41,7 @@ class _WkSvrHelper:
 
 class WuKongQueue:
     def __init__(
-            self, host="localhost", port=8848, name="", maxsize=0, **kwargs
+        self, host="localhost", port=8848, name="", maxsize=0, **kwargs
     ):
         """
         :param host: host for queue server listen
@@ -338,8 +338,9 @@ class WuKongQueue:
     @staticmethod
     def _parse_socket_msg(conn, **kw):
         ignore_socket_timeout = kw.pop("ignore_socket_timeout", False)
-        reply_msg = read_wukong_data(conn,
-                                     ignore_socket_timeout=ignore_socket_timeout)
+        reply_msg = read_wukong_data(
+            conn, ignore_socket_timeout=ignore_socket_timeout
+        )
         if not reply_msg.is_valid():
             return
         reply_msg.unwrap()
@@ -401,7 +402,10 @@ class WuKongQueue:
                         self.process_conn,
                         kw={"conn": conn, "me": client_stat.me},
                     )
-                    self._logger.info("new client from %s" % str(addr))
+                    self._logger.info(
+                        "[server:%s] new client from %s"
+                        % (self.addr, str(addr))
+                    )
                     continue
                 # auth failed!
                 conn.close()
@@ -417,8 +421,9 @@ class WuKongQueue:
         """run as thread at all"""
         with _WkSvrHelper(wk_inst=self, client_key=me):
             while True:
-                reply_msg = self._parse_socket_msg(conn,
-                                                   ignore_socket_timeout=True)
+                reply_msg = self._parse_socket_msg(
+                    conn, ignore_socket_timeout=True
+                )
                 if reply_msg is None:
                     return
                 cmd = reply_msg.queue_params_object.cmd
@@ -509,7 +514,7 @@ class WuKongQueue:
                     write_wukong_data(
                         conn,
                         WuKongPkg(
-                            wrap_queue_msg(queue_cmd=QUEUE_DATA, data=clients, )
+                            wrap_queue_msg(queue_cmd=QUEUE_DATA, data=clients,)
                         ),
                     )
 
