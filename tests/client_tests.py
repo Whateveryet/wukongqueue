@@ -1,15 +1,8 @@
 # -*- coding: utf-8 -*-
-import logging
-import sys
+import time
 from unittest import TestCase
 
-import time
-
-sys.path.append("../")
-try:
-    from wukongqueue.wukongqueue import *
-except ImportError:
-    from wukongqueue import *
+from wukongqueue import *
 
 max_size = 2
 host = "127.0.0.1"
@@ -49,6 +42,7 @@ class ClientTests(TestCase):
         svr, mport = new_svr(log_level=logging.FATAL)
         with svr.helper():
             client = WuKongQueueClient(host=host, port=mport)
+            print(client)
             put_str = "str" * 100
             put_bytes = b"byte" * 100
             self.assertIs(client.full(), False)
@@ -60,21 +54,17 @@ class ClientTests(TestCase):
             self.assertRaises(
                 Full, client.put, "str will raise exception", timeout=1
             )
-
             self.assertIs(client.full(), True)
             self.assertIs(client.empty(), False)
-
             self.assertEqual(client.get(), put_str)
             self.assertEqual(client.get(), put_bytes)
 
             self.assertIs(client.full(), False)
             self.assertIs(client.empty(), True)
-
             self.assertIs(client.connected(), True)
             client.close()
             self.assertIs(client.connected(), False)
-
-            self.assertRaises(Disconnected, client.get)
+            self.assertRaises(ConnectionError, client.get)
 
     def test_connected_clients(self):
         """
@@ -92,16 +82,13 @@ class ClientTests(TestCase):
                 c.append(client)
                 # print(client.connected_clients(),i+1)
                 self.assertEqual(client.connected_clients(), i + 1)
+
             for i in range(loop):
                 c[i].close()
-                time.sleep(
-                    0.5
-                )  # We must consider the necessary network delay
-                if i < loop - 1:
-                    # print(c[i+1].connected_clients(), len(c)-i-1)
-                    self.assertEqual(
-                        c[i + 1].connected_clients(), len(c) - i - 1
-                    )
+
+            client = WuKongQueueClient(host=host, port=mport)
+            self.assertEqual(client.connected_clients(), 1)
+            client.close()
 
     def test_reset_and_qsize(self):
         """
@@ -159,7 +146,7 @@ class ClientTests(TestCase):
                 while True:
                     try:
                         item = the_client.get()
-                    except Disconnected:
+                    except ConnectionError:
                         break
                     nonlocal _tmp_sum
                     _tmp_sum += int(item)
@@ -178,19 +165,35 @@ class ClientTests(TestCase):
             self.assertEqual(Sum, _tmp_sum)
 
     def test_silence_err(self):
+        mport = 65530
         client = WuKongQueueClient(
             host=host,
-            port=65530,
+            port=mport,
             silence_err=True,
-            pre_connect=True,
-            auto_reconnect=True,
-            log_level=logging.FATAL
+            log_level=logging.DEBUG
         )
         with client.helper():
             self.assertIs(client.connected(), False)
             self.assertEqual(client.realtime_qsize(), 0)
             self.assertEqual(client.realtime_maxsize(), 0)
             self.assertIs(client.full() and client.empty(), False)
+
+            with new_svr(port=mport, dont_change_port=True,
+                         log_level=logging.INFO)[0]:
+                self.assertIs(client.connected(), True)
+
+        client = WuKongQueueClient(
+            host=host,
+            port=mport,
+            silence_err=False,
+            log_level=logging.DEBUG
+        )
+        with client.helper():
+            self.assertIs(client.connected(), False)
+            self.assertRaises(ConnectionError, client.realtime_qsize)
+            self.assertRaises(ConnectionError, client.realtime_maxsize)
+            self.assertRaises(ConnectionError, client.full)
+            self.assertRaises(ConnectionError, client.empty)
 
     def test_authenticate(self):
         svr, mport = new_svr(log_level=logging.INFO)
@@ -212,27 +215,8 @@ class ClientTests(TestCase):
                                        port=mport,
                                        auth_key=auth + '1'):
                     pass
-            except AuthenticationFail:
+            except AuthenticationError:
                 pass
-
-    def test_auto_conn(self):
-        p = 65531
-        with WuKongQueueClient(host=host,
-                               port=p,
-                               pre_connect=True,
-                               auto_reconnect=True)as client:
-            self.assertRaises(Disconnected, client.put, item='1')
-            svr, mport = new_svr(port=p, log_level=logging.INFO,
-                                 dont_change_port=True)
-            with svr.helper():
-                self.assertIs(client.connected(), True)
-
-        # silence_err
-        with WuKongQueueClient(host=host,
-                               port=p,
-                               auto_reconnect=True,
-                               silence_err=True)as client:
-            self.assertIs(None, client.put(item='1'))
 
     def test_join(self):
         svr, mport = new_svr(log_level=logging.INFO)
@@ -289,4 +273,5 @@ class ClientTests(TestCase):
 
 if __name__ == "__main__":
     import unittest
+
     unittest.main()
