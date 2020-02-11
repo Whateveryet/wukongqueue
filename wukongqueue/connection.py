@@ -21,24 +21,26 @@ class Connection:
     """Tcp connection management, thread safe"""
 
     def __init__(
-        self,
-        host,
-        port,
-        auth_key=None,
-        check_health_interval=30,
-        socket_timeout=None,
-        socket_connect_timeout=None,
-        silence_err=True,
-        logger=None,
-        encoding=None,
-        encoding_err=None,
+            self,
+            host,
+            port,
+            auth_key=None,
+            check_health_interval=30,
+            socket_timeout=None,
+            socket_connect_timeout=None,
+            silence_err=True,
+            logger=None,
+            encoding=None,
+            encoding_err=None,
     ):
         # validate these args outside.
         self.server_addr = (host, port)
         self.socket_timeout = socket_timeout
         self.socket_connect_timeout = socket_connect_timeout or socket_timeout
         self.auth_key = auth_key
-        self.check_health_interval = check_health_interval
+        self.check_health_interval = 30
+        if isinstance(check_health_interval, int) and check_health_interval > 0:
+            self.check_health_interval = check_health_interval
         self._logger = logger or get_logger(self, logging.DEBUG)
         self._silence_err = silence_err
         self._tcp_client = None
@@ -141,19 +143,22 @@ class Connection:
         if self._tcp_client is not None:
             reply_msg = self.talk_with_svr(QUEUE_PING, check_health=False)
             if not reply_msg.is_valid():
-                self.connect(force=True)
+                err_msg = reply_msg.err
+                if reply_msg.is_socket_closed:
+                    err_msg = "socket is closed"
+                raise ConnectionError(err_msg)
             if reply_msg.raw_data != QUEUE_PONG:
                 raise UnknownResponse(
                     "check_health, Unknown response:%s" % reply_msg.raw_data
                 )
             return True
-        self.connect(force=True)
+        self.connect()
         return True
 
-    def talk_with_svr(self, msg: bytes, check_health=True):
+    def talk_with_svr(self, msg: bytes, check_health=True) -> WuKongPkg:
         if (
-            int(time.time()) - self._last_check_health_time
-            >= self.check_health_interval
+                int(time.time()) - self._last_check_health_time
+                >= self.check_health_interval
         ):
             if check_health:
                 self.check_health()
@@ -167,8 +172,8 @@ class Connection:
             if acquired:
                 self._tcp_client.write(msg)
                 return self._tcp_client.read()
-            # if has only single connection
-            # Do not call `blocking` method concurrently
+            # if has only single connection,
+            # Do not call blocking method concurrently
             raise ConnectionError("No available connection")
         finally:
             if acquired:
@@ -190,7 +195,8 @@ class ConnectionPool:
     """
 
     def __init__(
-        self, connection_cls=Connection, max_connections=0, **connection_kwargs
+            self, connection_cls=Connection, max_connections=0,
+            **connection_kwargs
     ):
         self.max_connections = 0
         if isinstance(max_connections, int) and max_connections >= 0:
@@ -252,7 +258,7 @@ class ConnectionPool:
     def close(self):
         with self._lock:
             for conn in self._available_connections + list(
-                self._in_use_connections
+                    self._in_use_connections
             ):
                 conn.close()
             self.closed = True

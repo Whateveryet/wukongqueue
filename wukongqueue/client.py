@@ -16,14 +16,14 @@ from .utils import Unify_encoding, get_logger, md5, helper
 
 class WuKongQueueClient:
     def __init__(
-        self,
-        host="localhost",
-        port=8848,
-        auth_key=None,
-        socket_connect_timeout=None,
-        connection_pool=None,
-        silence_err=False,
-        **kwargs
+            self,
+            host="localhost",
+            port=8848,
+            auth_key=None,
+            socket_connect_timeout=None,
+            connection_pool=None,
+            silence_err=False,
+            **kwargs
     ):
         """
         :param host: host
@@ -47,9 +47,10 @@ class WuKongQueueClient:
 
         connection_cls: tcp connection management class
 
-        check_health_interval: if the time from last time of check health
-        exceeds `check_health_interval`, client will check if the connection
-        is health, see the default value in wukongqueue.Connection class
+        check_health_interval: in seconds, if the time from last time of check
+        health exceeds `check_health_interval`, client will check if the
+        connection is health, see the default value in wukongqueue.Connection
+        class
 
         single_connection_client: use connection pool with no limitation to
         connections by default, you can use only single connection by set
@@ -75,11 +76,13 @@ class WuKongQueueClient:
                     auth_key.encode(encoding=encoding, errors=encoding_err)
                 )
             )
+            check_health_interval = kwargs.pop("check_health_interval", None)
             connection_kwargs = {
                 "host": host,
                 "port": port,
                 "auth_key": auth_key,
                 "socket_connect_timeout": socket_connect_timeout,
+                "check_health_interval": check_health_interval,
                 "silence_err": silence_err,
                 "logger": self._logger,
                 "socket_timeout": kwargs.pop("socket_timeout", None),
@@ -106,7 +109,7 @@ class WuKongQueueClient:
         :param timeout: see also WuKongQueue.put
         """
         assert type(timeout) in [int, float, type(None)], (
-            "invalid timeout %s" % timeout
+                "invalid timeout %s" % timeout
         )
         try:
             cmd = wrap_queue_msg(
@@ -139,11 +142,11 @@ class WuKongQueueClient:
         """
         if convert_method:
             assert callable(convert_method), (
-                "not a callable obj:%s" % convert_method
+                    "not a callable obj:%s" % convert_method
             )
 
         assert type(timeout) in [int, float, type(None)], (
-            "invalid timeout %s" % timeout
+                "invalid timeout %s" % timeout
         )
 
         cmd = wrap_queue_msg(
