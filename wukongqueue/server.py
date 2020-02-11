@@ -2,21 +2,22 @@
 A small and convenient cross process FIFO queue service based on
 TCP protocol.
 """
+import logging
+import threading
 from collections import deque
 from queue import Full, Empty
-from time import monotonic as time
-from types import FunctionType
-from typing import Union
+from time import monotonic
 
 from ._commu_proto import *
-from ._item_wrapper import item_unwrap, item_wrapper
-from .utils import *
-
-__all__ = ["WuKongQueue", "new_thread", "Full", "Empty"]
-
-
-class UnknownCmd(Exception):
-    pass
+from .exceptions import UnknownCmd, Empty, Full
+from .utils import (
+    Unify_encoding,
+    md5,
+    new_thread,
+    get_logger,
+    get_builtin_name,
+    helper,
+)
 
 
 class _ClientStatistic:
@@ -36,11 +37,13 @@ class _WkSvrHelper:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.wk_inst._remove_client(self.client_key)
+        self.wk_inst.remove_client(self.client_key)
 
 
 class WuKongQueue:
-    def __init__(self, host, port, *, name="", maxsize=0, **kwargs):
+    def __init__(
+        self, host="localhost", port=8848, name="", maxsize=0, **kwargs
+    ):
         """
         :param host: host for queue server listen
         :param port: port for queue server listen
@@ -56,15 +59,25 @@ class WuKongQueue:
         the WuKongQueue's logging level that output to stderr
 
         auth_key: it is a string used for client authentication. If is None,
-        the client does not need authentication.
+        the client does not need authentication
+
+        socket_connect_timeout: maximum socket operations time allowed during
+        connection establishment
+
+        socket_timeout: maximum socket operations time allowed after successful
+        connection
         """
-        self.name = name if name else get_builtin_name()
+        self.name = name or get_builtin_name()
         self.addr = (host, port)
 
         self.max_clients = kwargs.pop("max_clients", 0)
         self._tcp_svr = TcpSvr(host, port)
         log_level = kwargs.pop("log_level", logging.DEBUG)
         self._logger = get_logger(self, log_level)
+        self.socket_connect_timeout = kwargs.pop("socket_connect_timeout", 30)
+        self.socket_timeout = kwargs.pop(
+            "socket_timeout", self.socket_connect_timeout
+        )
 
         # key->"-".join(client.addr)
         # value-> `_ClientStatistic`
@@ -108,7 +121,8 @@ class WuKongQueue:
             self._auth_key = None
 
     def run(self):
-        """if not run,clients cannot connect to server,but server side
+        """
+        if not running, clients can't connect to server,but server side
         is still available
         """
         if self.closed:
@@ -127,11 +141,11 @@ class WuKongQueue:
                 client_stat.conn.close()
             self.client_stats.clear()
         self._logger.debug(
-            "<WuKongQueue listened {} was closed>".format(self.addr)
+            "<WuKongQueue listened {} " "was closed>".format(self.addr)
         )
 
     def __repr__(self):
-        return "<WuKongQueue listened {}, closed:{}>".format(
+        return "<WuKongQueue listened {}, " "is_closed:{}>".format(
             self.addr, self.closed
         )
 
@@ -157,9 +171,7 @@ class WuKongQueue:
     def _qsize(self):
         return len(self.queue)
 
-    def get(
-        self, block=True, timeout=None, convert_method: FunctionType = None,
-    ) -> bytes:
+    def get(self, block=True, timeout=None, convert_method=None):
         """Remove and return an item from the queue.
         :param block
         :param timeout
@@ -170,9 +182,7 @@ class WuKongQueue:
         Otherwise ('block' is false), return an item if one is immediately
         available, else raise the Empty exception ('timeout' is ignored
         in that case).
-        :param convert_method: eventually, `get` returns
-        convert_method(raw_bytes)
-        :return: bytes
+        :param convert_method: eventually, `get` returns convert_method(item)
         """
         with self.not_empty:
             if not block:
@@ -184,19 +194,17 @@ class WuKongQueue:
             elif timeout < 0:
                 raise ValueError("'timeout' must be a non-negative number")
             else:
-                endtime = time() + timeout
+                endtime = monotonic() + timeout
                 while not self._qsize():
-                    remaining = endtime - time()
+                    remaining = endtime - monotonic()
                     if remaining <= 0.0:
                         raise Empty
                     self.not_empty.wait(remaining)
             item = self.queue.popleft()
             self.not_full.notify()
-            return convert_method(item) if convert_method else item
+            return convert_method(item) if convert_method is not None else item
 
-    def put(
-        self, item, block=True, timeout=None, encoding=Unify_encoding,
-    ):
+    def put(self, item, block=True, timeout=None):
         """Put an item into the queue.
         :param item: value for put
         :param block
@@ -207,9 +215,7 @@ class WuKongQueue:
         the Full exception if no free slot was available within that time.
         Otherwise ('block' is false), put an item on the queue if a free slot
         is immediately available, else raise the Full exception ('timeout'
-        is ignored in that case).
-        :param encoding: if item type is string, we will convert it into
-        bytes with given encoding.
+        is ignored in that case)
         """
         with self.not_full:
             if self.maxsize > 0:
@@ -222,9 +228,9 @@ class WuKongQueue:
                 elif timeout < 0:
                     raise ValueError("'timeout' must be a non-negative number")
                 else:
-                    endtime = time() + timeout
+                    endtime = monotonic() + timeout
                     while self._qsize() >= self.maxsize:
-                        remaining = endtime - time()
+                        remaining = endtime - monotonic()
                         if remaining <= 0.0:
                             raise Full
                         self.not_full.wait(remaining)
@@ -232,7 +238,7 @@ class WuKongQueue:
             self.unfinished_tasks += 1
             self.not_empty.notify()
 
-    def put_nowait(self, item: Union[bytes, str]):
+    def put_nowait(self, item):
         """
         Put an item into the queue without blocking.
 
@@ -243,7 +249,7 @@ class WuKongQueue:
         """
         return self.put(item, block=False)
 
-    def get_nowait(self, convert_method: FunctionType = None) -> bytes:
+    def get_nowait(self, convert_method=None) -> bytes:
         """
         Remove and return an item from the queue without blocking.
 
@@ -315,40 +321,83 @@ class WuKongQueue:
             while self.unfinished_tasks:
                 self.all_tasks_done.wait()
 
-    def _remove_client(self, client_key):
+    def remove_client(self, client_key):
         with self._statistic_lock:
             if client_key in self.client_stats:
                 self.client_stats[client_key].conn.close()
                 self.client_stats.pop(client_key)
 
+    @staticmethod
+    def _parse_socket_msg(conn):
+        reply_msg = read_wukong_data(conn)
+        if not reply_msg.is_valid():
+            return
+        reply_msg.unwrap()
+        return reply_msg
+
+    def _auth(self, conn, client_stat: _ClientStatistic):
+        def auth_core():
+            if self._auth_key is None:
+                return True
+            reply_msg = self._parse_socket_msg(conn)
+            if reply_msg is not None:
+                cmd = reply_msg.queue_params_object.cmd
+                args = reply_msg.queue_params_object.args
+                if cmd == QUEUE_AUTH_KEY:
+                    if args["auth_key"] == self._auth_key:
+                        client_stat.is_authenticated = True
+                        write_wukong_data(conn, WuKongPkg(QUEUE_OK))
+                        return True
+                    else:
+                        write_wukong_data(conn, WuKongPkg(QUEUE_FAIL))
+                        return False
+            return False
+
+        if auth_core():
+            client_stat.conn.settimeout(self.socket_timeout)
+            with self._statistic_lock:
+                self.client_stats[client_stat.me] = client_stat
+                return True
+        return False
+
+    def on_running(self):
+        if self.closed:
+            self.closed = False
+            self._logger.debug(
+                "<WuKongQueue [%s] is listening to %s" % (self.name, self.addr)
+            )
+
     def _run(self):
-        self.closed = False
-        self._logger.debug(
-            "<WuKongQueue [%s] is listening to %s" % (self.name, self.addr)
-        )
         while True:
             try:
                 conn, addr = self._tcp_svr.accept()
+                conn.settimeout(self.socket_connect_timeout)
             except OSError:
                 return
-
+            self.on_running()
             client_stat = _ClientStatistic(client_addr=addr, conn=conn)
-
             with self._statistic_lock:
                 if self.max_clients > 0:
-                    if self.max_clients == len(self.client_stats):
+                    if self.max_clients <= len(self.client_stats):
                         # client will receive a empty byte, that represents
                         # clients fulled!
                         conn.close()
                         continue
-                self.client_stats[client_stat.me] = client_stat
-            # send hi message when connection is successful
-            ok, err = write_wukong_data(conn, WukongPkg(QUEUE_HI))
+
+            # send hi message on connected
+            ok, err = write_wukong_data(conn, WuKongPkg(QUEUE_HI))
             if ok:
-                new_thread(
-                    self.process_conn, kw={"conn": conn, "me": client_stat.me}
-                )
-                self._logger.info("new client from %s" % str(addr))
+                # it's a must to authenticate firstly
+                if self._auth(conn=conn, client_stat=client_stat):
+                    new_thread(
+                        self.process_conn,
+                        kw={"conn": conn, "me": client_stat.me},
+                    )
+                    self._logger.info("new client from %s" % str(addr))
+                    continue
+                # auth failed!
+                conn.close()
+                continue
             else:
                 # please report this problem with your python version and
                 # wukongqueue package version on
@@ -356,52 +405,24 @@ class WuKongQueue:
                 self._logger.fatal("write_wukong_data err:%s" % err)
                 return
 
-    def process_conn(self, me: str, conn):
+    def process_conn(self, me, conn):
         """run as thread at all"""
         with _WkSvrHelper(wk_inst=self, client_key=me):
             while True:
-                wukongpkg = read_wukong_data(conn)
-                if not wukongpkg.is_valid():
+                reply_msg = self._parse_socket_msg(conn)
+                if reply_msg is None:
                     return
-
-                data = wukongpkg.raw_data
-                resp = unwrap_queue_msg(data)
-                cmd, args, data = resp["cmd"], resp["args"], resp["data"]
+                cmd = reply_msg.queue_params_object.cmd
+                args = reply_msg.queue_params_object.args
+                data = reply_msg.queue_params_object.data
 
                 # Instruction for cmd and data interaction:
                 #   1. if only queue_cmd, just send WukongPkg(QUEUE_OK)
                 #   2. if there's arg or data besides queue_cmd, use
                 #      wrap_queue_msg(queue_cmd=QUEUE_CMD, arg={}, data=b'')
 
-                # AUTH, it's a must to authenticate firstly
-                with self._statistic_lock:
-                    client_stat = self.client_stats.get(me)
-                    if client_stat is None:
-                        return
-
-                    if cmd == QUEUE_AUTH_KEY:
-                        is_auth = False
-                        if client_stat.is_authenticated:
-                            is_auth = True
-                        elif args["auth_key"] == self._auth_key:
-                            is_auth = True
-                            client_stat.is_authenticated = True
-                        if is_auth:
-                            write_wukong_data(conn, WukongPkg(QUEUE_OK))
-                            continue
-                        else:
-                            write_wukong_data(conn, WukongPkg(QUEUE_FAIL))
-                            return
-                    else:
-                        # check whether authenticated if need
-                        if self._auth_key is not None:
-                            if not client_stat.is_authenticated:
-                                write_wukong_data(
-                                    conn, WukongPkg(QUEUE_NEED_AUTH)
-                                )
-                                return
                 #
-                # Respond client normally
+                # Communicate with client normally
                 #
 
                 # GET
@@ -411,15 +432,12 @@ class WuKongQueue:
                             block=args["block"], timeout=args["timeout"]
                         )
                     except Empty:
-                        write_wukong_data(conn, WukongPkg(QUEUE_EMPTY))
+                        write_wukong_data(conn, WuKongPkg(QUEUE_EMPTY))
                     else:
                         write_wukong_data(
                             conn,
-                            WukongPkg(
-                                wrap_queue_msg(
-                                    queue_cmd=QUEUE_DATA,
-                                    data=item_wrapper(item),
-                                )
+                            WuKongPkg(
+                                wrap_queue_msg(queue_cmd=QUEUE_DATA, data=item)
                             ),
                         )
 
@@ -427,37 +445,34 @@ class WuKongQueue:
                 elif cmd == QUEUE_PUT:
                     try:
                         self.put(
-                            item_unwrap(data),
-                            block=args["block"],
-                            timeout=args["timeout"],
+                            data, block=args["block"], timeout=args["timeout"],
                         )
                     except Full:
-                        write_wukong_data(conn, WukongPkg(QUEUE_FULL))
+                        write_wukong_data(conn, WuKongPkg(QUEUE_FULL))
                     else:
-                        write_wukong_data(conn, WukongPkg(QUEUE_OK))
+                        write_wukong_data(conn, WuKongPkg(QUEUE_OK))
 
                 # STATUS QUERY
                 elif cmd == QUEUE_QUERY_STATUS:
                     # FULL | EMPTY | NORMAL
                     if self.full():
-                        write_wukong_data(conn, WukongPkg(QUEUE_FULL))
+                        write_wukong_data(conn, WuKongPkg(QUEUE_FULL))
                     elif self.empty():
-                        write_wukong_data(conn, WukongPkg(QUEUE_EMPTY))
+                        write_wukong_data(conn, WuKongPkg(QUEUE_EMPTY))
                     else:
-                        write_wukong_data(conn, WukongPkg(QUEUE_NORMAL))
+                        write_wukong_data(conn, WuKongPkg(QUEUE_NORMAL))
 
                 # PING -> PONG
                 elif cmd == QUEUE_PING:
-                    write_wukong_data(conn, WukongPkg(QUEUE_PONG))
+                    write_wukong_data(conn, WuKongPkg(QUEUE_PONG))
 
                 # QSIZE
                 elif cmd == QUEUE_SIZE:
                     write_wukong_data(
                         conn,
-                        WukongPkg(
+                        WuKongPkg(
                             wrap_queue_msg(
-                                queue_cmd=QUEUE_DATA,
-                                data=str(self.qsize()).encode(),
+                                queue_cmd=QUEUE_DATA, data=self.qsize(),
                             )
                         ),
                     )
@@ -466,10 +481,9 @@ class WuKongQueue:
                 elif cmd == QUEUE_MAXSIZE:
                     write_wukong_data(
                         conn,
-                        WukongPkg(
+                        WuKongPkg(
                             wrap_queue_msg(
-                                queue_cmd=QUEUE_DATA,
-                                data=str(self.maxsize).encode(),
+                                queue_cmd=QUEUE_DATA, data=self.maxsize,
                             )
                         ),
                     )
@@ -477,7 +491,7 @@ class WuKongQueue:
                 # RESET
                 elif cmd == QUEUE_RESET:
                     self.reset(args["maxsize"])
-                    write_wukong_data(conn, WukongPkg(QUEUE_OK))
+                    write_wukong_data(conn, WuKongPkg(QUEUE_OK))
 
                 # CLIENTS NUMBER
                 elif cmd == QUEUE_CLIENTS:
@@ -485,11 +499,8 @@ class WuKongQueue:
                         clients = len(self.client_stats.keys())
                     write_wukong_data(
                         conn,
-                        WukongPkg(
-                            wrap_queue_msg(
-                                queue_cmd=QUEUE_DATA,
-                                data=str(clients).encode(),
-                            )
+                        WuKongPkg(
+                            wrap_queue_msg(queue_cmd=QUEUE_DATA, data=clients,)
                         ),
                     )
 
@@ -500,13 +511,12 @@ class WuKongQueue:
                         self.task_done()
                     except ValueError as e:
                         reply["cmd"] = QUEUE_FAIL
-                        reply["err"] = str(e.args)
+                        reply["err"] = e
                     write_wukong_data(
                         conn,
-                        WukongPkg(
+                        WuKongPkg(
                             wrap_queue_msg(
-                                queue_cmd=reply["cmd"],
-                                data=reply["err"].encode(),
+                                queue_cmd=reply["cmd"], exception=reply["err"]
                             )
                         ),
                     )
@@ -514,8 +524,6 @@ class WuKongQueue:
                 # JOIN
                 elif cmd == QUEUE_JOIN:
                     self.join()
-                    write_wukong_data(
-                        conn, WukongPkg(wrap_queue_msg(queue_cmd=QUEUE_OK,))
-                    )
+                    write_wukong_data(conn, WuKongPkg(QUEUE_OK))
                 else:
                     raise UnknownCmd(cmd)
