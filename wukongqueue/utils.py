@@ -59,7 +59,7 @@ def get_logger(self, level) -> logging.Logger:
     return logger
 
 
-def md5(msg: bytes):
+def md5(msg):
     d = hashlib.md5()
     d.update(msg)
     return d.hexdigest()
