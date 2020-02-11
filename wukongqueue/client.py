@@ -77,6 +77,9 @@ class WuKongQueueClient:
                 )
             )
             check_health_interval = kwargs.pop("check_health_interval", None)
+            if isinstance(check_health_interval, int):
+                if check_health_interval < 0:
+                    check_health_interval = None
             connection_kwargs = {
                 "host": host,
                 "port": port,
