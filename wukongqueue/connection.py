@@ -21,21 +21,21 @@ class Connection:
     """Tcp connection management, thread safe"""
 
     def __init__(
-            self,
-            host,
-            port,
-            auth_key=None,
-            check_health_interval=None,
-            socket_keepalive=True,
-            socket_keepalive_options=None,
-            socket_timeout=None,
-            socket_connect_timeout=None,
-            retry_on_disconnect=False,
-            silence_err=True,
-            log_level=logging.DEBUG,
-            logger=None,
-            encoding=None,
-            encoding_err=None,
+        self,
+        host,
+        port,
+        auth_key=None,
+        check_health_interval=None,
+        socket_keepalive=True,
+        socket_keepalive_options=None,
+        socket_timeout=None,
+        socket_connect_timeout=None,
+        retry_on_disconnect=False,
+        silence_err=True,
+        log_level=logging.DEBUG,
+        logger=None,
+        encoding=None,
+        encoding_err=None,
     ):
         # validate these args outside.
         self.server_addr = (host, port)
@@ -99,8 +99,9 @@ class Connection:
 
             # tcp keepalive
             if self.socket_keepalive:
-                tcp_client.sock.setsockopt(socket.SOL_SOCKET,
-                                           socket.SO_KEEPALIVE, 1)
+                tcp_client.sock.setsockopt(
+                    socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1
+                )
                 for k, v in self.socket_keepalive_options.items():
                     tcp_client.sock.setsockopt(socket.IPPROTO_TCP, k, v)
 
@@ -171,8 +172,8 @@ class Connection:
 
     def talk_with_svr(self, msg: bytes, check_health=True) -> WuKongPkg:
         if (
-                int(time.time()) - self._last_check_health_time
-                >= self.check_health_interval
+            int(time.time()) - self._last_check_health_time
+            >= self.check_health_interval
         ):
             if check_health:
                 self.check_health()
@@ -216,8 +217,7 @@ class ConnectionPool:
     """
 
     def __init__(
-            self, connection_cls=Connection, max_connections=0,
-            **connection_kwargs
+        self, connection_cls=Connection, max_connections=0, **connection_kwargs
     ):
         self.max_connections = 0
         if isinstance(max_connections, int) and max_connections >= 0:
@@ -279,7 +279,7 @@ class ConnectionPool:
     def close(self):
         with self._lock:
             for conn in self._available_connections + list(
-                    self._in_use_connections
+                self._in_use_connections
             ):
                 conn.close()
             self.closed = True
