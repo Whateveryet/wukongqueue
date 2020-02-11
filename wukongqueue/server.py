@@ -41,7 +41,7 @@ class _WkSvrHelper:
 
 class WuKongQueue:
     def __init__(
-        self, host="localhost", port=8848, name="", maxsize=0, **kwargs
+            self, host="localhost", port=8848, name="", maxsize=0, **kwargs
     ):
         """
         :param host: host for queue server listen
@@ -64,7 +64,8 @@ class WuKongQueue:
         connection establishment
 
         socket_timeout: maximum socket operations time allowed after successful
-        connection
+        connection, prevent the client from disconnecting in a way that the
+        server cannot sense, thus making the resources unable to be released.
         """
         self.name = name or get_builtin_name()
         self.addr = (host, port)
@@ -320,15 +321,23 @@ class WuKongQueue:
             while self.unfinished_tasks:
                 self.all_tasks_done.wait()
 
+    def connected_clients(self):
+        with self._statistic_lock:
+            return len(self.client_stats)
+
     def remove_client(self, client_key):
         with self._statistic_lock:
-            if client_key in self.client_stats:
+            try:
                 self.client_stats[client_key].conn.close()
                 self.client_stats.pop(client_key)
+            except KeyError:
+                pass
 
     @staticmethod
-    def _parse_socket_msg(conn):
-        reply_msg = read_wukong_data(conn)
+    def _parse_socket_msg(conn, **kw):
+        ignore_socket_timeout = kw.pop("ignore_socket_timeout", False)
+        reply_msg = read_wukong_data(conn,
+                                     ignore_socket_timeout=ignore_socket_timeout)
         if not reply_msg.is_valid():
             return
         reply_msg.unwrap()
@@ -407,7 +416,8 @@ class WuKongQueue:
         """run as thread at all"""
         with _WkSvrHelper(wk_inst=self, client_key=me):
             while True:
-                reply_msg = self._parse_socket_msg(conn)
+                reply_msg = self._parse_socket_msg(conn,
+                                                   ignore_socket_timeout=True)
                 if reply_msg is None:
                     return
                 cmd = reply_msg.queue_params_object.cmd
@@ -498,7 +508,7 @@ class WuKongQueue:
                     write_wukong_data(
                         conn,
                         WuKongPkg(
-                            wrap_queue_msg(queue_cmd=QUEUE_DATA, data=clients,)
+                            wrap_queue_msg(queue_cmd=QUEUE_DATA, data=clients, )
                         ),
                     )
 
