@@ -30,6 +30,7 @@ class Connection:
             socket_keepalive_options=None,
             socket_timeout=None,
             socket_connect_timeout=None,
+            retry_on_disconnect=False,
             silence_err=True,
             log_level=logging.DEBUG,
             logger=None,
@@ -43,6 +44,7 @@ class Connection:
         self.socket_timeout = socket_timeout
         self.socket_connect_timeout = socket_connect_timeout or socket_timeout
         self.auth_key = auth_key
+        self.retry_on_disconnect = retry_on_disconnect
         self.check_health_interval = 30
         if check_health_interval:
             self.check_health_interval = check_health_interval
@@ -157,10 +159,8 @@ class Connection:
         if self._tcp_client is not None:
             reply_msg = self.talk_with_svr(QUEUE_PING, check_health=False)
             if not reply_msg.is_valid():
-                err_msg = reply_msg.err
-                if reply_msg.is_socket_closed:
-                    err_msg = "socket is closed"
-                raise ConnectionError(err_msg)
+                self.connect(force=True)
+                return True
             if reply_msg.raw_data != QUEUE_PONG:
                 raise UnknownResponse(
                     "check_health, Unknown response:%s" % reply_msg.raw_data
@@ -181,13 +181,21 @@ class Connection:
             self.connect()
 
         acquired = self._lock.acquire(blocking=True, timeout=0.1)
+        retry_on_disconnect = self.retry_on_disconnect
         try:
-            if acquired:
-                self._tcp_client.write(msg)
-                return self._tcp_client.read()
-            # if has only single connection,
-            # Do not call blocking method concurrently
-            raise ConnectionError("No available connection")
+            while True:
+                if acquired:
+                    self._tcp_client.write(msg)
+                    reply_msg = self._tcp_client.read()
+                    if not reply_msg.is_valid():
+                        if retry_on_disconnect:
+                            self.connect(force=True)
+                            retry_on_disconnect = False
+                            continue
+                    return reply_msg
+                # if has only single connection,
+                # Do not call blocking method concurrently
+                raise ConnectionError("No available connection")
         finally:
             if acquired:
                 self._lock.release()
