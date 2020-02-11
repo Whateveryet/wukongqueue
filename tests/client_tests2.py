@@ -1,6 +1,7 @@
+import sys
 import time
 from unittest import TestCase, main
-import sys
+
 sys.path.append("../")
 try:
     from wukongqueue.wukongqueue import *
@@ -96,9 +97,8 @@ class ClientTests(TestCase):
                     c.join()
                     print(c, 'joined')
 
-
                 # call with six connections
-                for i in range(max_connections+1):
+                for i in range(max_connections + 1):
                     new_thread(concurrent_join, kw={"c": client, "seq": i})
                     time.sleep(0.1)
 
@@ -116,6 +116,21 @@ class ClientTests(TestCase):
                 pool.close()
 
                 time.sleep(2)
+
+    def test_check_health(self):
+        port = 65534
+        with WuKongQueueClient(host=host,
+                               port=port,
+                               check_health_interval=1)as client:
+            self.assertRaises(ConnectionError, client.get)
+            time.sleep(1)
+            svr, _ = new_svr(port=port, dont_change_port=True)
+            for i in range(2):
+                self.assertRaises(Empty, client.get, block=False)
+                time.sleep(1)
+            self.assertEqual(len(client.connection_pool._available_connections),
+                             1)
+            svr.close()
 
 
 if __name__ == '__main__':
