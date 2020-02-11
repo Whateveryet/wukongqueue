@@ -97,7 +97,7 @@ class Connection:
                 return tcp_client
             else:
                 raise UnknownResponse(
-                    "Unknown response:%s" % wukong_pkg.raw_data
+                    "_connect Unknown response:%s" % wukong_pkg.raw_data
                 )
         except (WuKongError, socket.error):
             if tcp_client:
@@ -144,7 +144,7 @@ class Connection:
                 self.connect(force=True)
             if reply_msg.raw_data != QUEUE_PONG:
                 raise UnknownResponse(
-                    "Unknown response:%s" % reply_msg.raw_data
+                    "check_health, Unknown response:%s" % reply_msg.raw_data
                 )
             return True
         self.connect(force=True)
