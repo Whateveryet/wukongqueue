@@ -70,7 +70,7 @@ class WuKongQueue:
         """
         self.name = name or get_builtin_name()
         self.addr = (host, port)
-
+        self._tcp_svr = None
         self.max_clients = kwargs.pop("max_clients", 0)
         log_level = kwargs.pop("log_level", logging.DEBUG)
         self._logger = get_logger(self, log_level)
@@ -126,6 +126,8 @@ class WuKongQueue:
         is still available
         """
         if self.closed:
+            self._tcp_svr = TcpSvr(*self.addr)
+            self.on_running()
             new_thread(self._run)
 
     def close(self):
@@ -135,7 +137,7 @@ class WuKongQueue:
         disconnected immediately
         """
         self.closed = True
-        self._tcp_svr.close()
+        self._tcp_svr.close() if self._tcp_svr else ...
         with self._statistic_lock:
             for client_stat in self.client_stats.values():
                 client_stat.conn.close()
@@ -375,8 +377,6 @@ class WuKongQueue:
             )
 
     def _run(self):
-        self._tcp_svr = TcpSvr(*self.addr)
-        self.on_running()
         while True:
             try:
                 conn, addr = self._tcp_svr.accept()
