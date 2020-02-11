@@ -14,6 +14,7 @@ A lightweight and easy-to-use cross network queue service implemented by pure Py
 
 ## Features
 * Fast (directly based on tcp long-running connection)
+* Support multi-threaded(with connection pool)
 * Supports all Python basic type
 * Supports automatically reconnect when disconnected
 * Easy to use, APIs' usage like stdlib [`queue`][1]
