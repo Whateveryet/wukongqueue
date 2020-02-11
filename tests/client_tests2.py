@@ -1,8 +1,11 @@
 import time
 from unittest import TestCase, main
 import sys
-sys.path.append('../')
-from wukongqueue import *
+sys.path.append("../")
+try:
+    from wukongqueue.wukongqueue import *
+except ImportError:
+    from wukongqueue import *
 
 max_size = 2
 host = "127.0.0.1"
