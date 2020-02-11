@@ -36,8 +36,9 @@ def item_wrapper(item: Any) -> bytes:
 
 def item_unwrap(item_pickled: bytes) -> Any:
     if len(item_pickled) == 0:
-        return b''
+        return b""
     return pickle.loads(item_pickled, encoding=Unify_encoding)
+
 
 # def item_wrapper(item: Any, encoding) -> ItemWrapped:
 #     ret = ItemWrapped()
