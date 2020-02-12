@@ -1,4 +1,4 @@
-import sys
+import sys,logging
 import time
 from unittest import TestCase, main
 
