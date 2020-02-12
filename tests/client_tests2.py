@@ -1,4 +1,5 @@
-import sys,logging
+import logging
+import sys
 import time
 from unittest import TestCase, main
 
@@ -26,14 +27,11 @@ def new_svr(host=host, port=default_port, auth=None, log_level=logging.DEBUG,
         except OSError as e:
             if 'already' in str(e.args) or '只允许使用一次' in str(e.args):
                 if dont_change_port is True:
-                    print(111111)
                     raise e
                 if p >= 65535:
-                    print(222222)
                     raise e
                 p += 1
             else:
-                print(33333333)
                 raise e
 
 
@@ -53,6 +51,7 @@ class ClientTests(TestCase):
 
         with svr.helper():
             client = WuKongQueueClient(host=host, port=mport,
+                                       log_level=logging.FATAL,
                                        single_connection_client=True)
             with client:
                 new_thread(put, kw={'c': client})
@@ -76,9 +75,6 @@ class ClientTests(TestCase):
                 client.task_done() and client.realtime_qsize()
                 client.connected_clients()
 
-    def test_connect_timeout(self):
-        pass
-
     def test_connection_pool(self):
         max_size = 0
         svr, mport = new_svr(max_size=max_size, log_level=logging.FATAL)
@@ -88,8 +84,10 @@ class ClientTests(TestCase):
             max_connections = 5
             pool = ConnectionPool(host=host, port=mport,
                                   silence_err=True,
+                                  log_level=logging.FATAL,
                                   max_connections=max_connections)
-            client = WuKongQueueClient(connection_pool=pool)
+            client = WuKongQueueClient(connection_pool=pool,
+                                       log_level=logging.FATAL)
             with client:
                 def concurrent_join(c: WuKongQueueClient, seq):
                     print(c, 'waiting')
@@ -121,7 +119,8 @@ class ClientTests(TestCase):
                 time.sleep(2)
 
     def test_check_health(self):
-        svr, mport = new_svr(max_size=max_size, log_level=logging.WARNING)
+        svr, mport = new_svr(port=65535, max_size=max_size,
+                             log_level=logging.WARNING)
         client = WuKongQueueClient(host=host,
                                    port=mport,
                                    log_level=logging.WARNING,
@@ -131,7 +130,6 @@ class ClientTests(TestCase):
             svr.close()
             self.assertRaises(ConnectionError, client.full)
             self.assertRaises(ConnectionError, client.full)
-            time.sleep(1)
             svr.run()
             # wait health check time is up, then try recover connection
             time.sleep(1)
