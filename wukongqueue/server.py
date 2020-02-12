@@ -131,7 +131,8 @@ class WuKongQueue:
             new_thread(self._run)
 
     def close(self):
-        """close only makes sense for the clients, server side is still
+        """
+        close only makes sense for the clients, server side is still
         available.
         Note: When close is executed, all connected clients will be
         disconnected immediately
