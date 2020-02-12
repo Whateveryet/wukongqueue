@@ -30,6 +30,7 @@ def new_svr(host=host, port=default_port, auth=None, log_level=logging.DEBUG,
                     raise e
                 if p >= 65535:
                     raise e
+                print('change port', p+1)
                 p += 1
             else:
                 raise e
@@ -90,13 +91,11 @@ class ClientTests(TestCase):
                                        log_level=logging.FATAL)
             with client:
                 def concurrent_join(c: WuKongQueueClient, seq):
-                    print(c, 'waiting')
                     if seq == max_connections:
                         # up to max connections
                         self.assertRaises(ConnectionError, c.join)
                         return
-                    c.join()
-                    print(c, 'joined')
+                    self.assertEqual(c.join(), None)
 
                 # call with six connections
                 for i in range(max_connections + 1):
@@ -130,11 +129,11 @@ class ClientTests(TestCase):
             svr.close()
             self.assertRaises(ConnectionError, client.full)
             self.assertRaises(ConnectionError, client.full)
-            svr.run()
-            # wait health check time is up, then try recover connection
-            time.sleep(1)
-            client.full()
-            svr.close()
+            with svr:
+                svr.run()
+                # wait health check time is up, then try recover connection
+                time.sleep(1)
+                client.full()
 
 
 if __name__ == '__main__':
