@@ -137,7 +137,9 @@ class WuKongQueue:
         disconnected immediately
         """
         self.closed = True
-        self._tcp_svr.close() if self._tcp_svr else ...
+        if self._tcp_svr:
+            self._tcp_svr.close()
+            self._tcp_svr = None
         with self._statistic_lock:
             for client_stat in self.client_stats.values():
                 client_stat.conn.close()
