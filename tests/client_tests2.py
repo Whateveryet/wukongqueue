@@ -24,14 +24,16 @@ def new_svr(host=host, port=default_port, auth=None, log_level=logging.DEBUG,
                 auth_key=auth
             ), p
         except OSError as e:
-            print('already' in str(e.args),111, str(e.args))
             if 'already' in str(e.args) or '只允许使用一次' in str(e.args):
                 if dont_change_port is True:
+                    print(111111)
                     raise e
                 if p >= 65535:
+                    print(222222)
                     raise e
                 p += 1
             else:
+                print(33333333)
                 raise e
 
 
