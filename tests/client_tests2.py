@@ -13,8 +13,13 @@ max_size = 2
 host = "127.0.0.1"
 default_port = 10000
 
+_check_health_port = 10010
 
-def new_svr(host=host, port=default_port, auth=None, log_level=logging.DEBUG,
+skip_ports = [_check_health_port]
+
+
+def new_svr(host=host, port=default_port, specific=False, auth=None,
+            log_level=logging.DEBUG,
             dont_change_port=False, max_size=max_size):
     p = port
     while 1:
@@ -30,8 +35,13 @@ def new_svr(host=host, port=default_port, auth=None, log_level=logging.DEBUG,
                     raise e
                 if p >= 65535:
                     raise e
-                print('change port', p+1)
-                p += 1
+                while True:
+                    p += 1
+                    if p in skip_ports:
+                        if specific:
+                            break
+                    else:
+                        break
             else:
                 raise e
 
@@ -118,7 +128,10 @@ class ClientTests(TestCase):
                 time.sleep(2)
 
     def test_check_health(self):
-        svr, mport = new_svr(max_size=max_size,
+        svr, mport = new_svr(port=_check_health_port,
+                             specific=True,
+                             dont_change_port=True,
+                             max_size=max_size,
                              log_level=logging.WARNING)
         client = WuKongQueueClient(host=host,
                                    port=mport,
