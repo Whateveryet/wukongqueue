@@ -47,7 +47,8 @@ class ClientTests(TestCase):
         """
         svr, mport = new_svr(log_level=logging.FATAL)
         with svr.helper():
-            client = WuKongQueueClient(host=host, port=mport)
+            client = WuKongQueueClient(host=host, port=mport,
+                                       log_level=logging.FATAL)
             print(client)
             put_str = "str" * 100
             put_bytes = b"byte" * 100
@@ -189,14 +190,14 @@ class ClientTests(TestCase):
             self.assertIs(client.full() and client.empty(), False)
 
             with new_svr(port=mport, dont_change_port=True,
-                         log_level=logging.WARNING)[0]:
+                         log_level=logging.FATAL)[0]:
                 self.assertIs(client.connected(), True)
             time.sleep(1)
         client = WuKongQueueClient(
             host=host,
             port=mport,
             silence_err=False,
-            log_level=logging.DEBUG
+            log_level=logging.FATAL
         )
         with client.helper():
             self.assertIs(client.connected(), False)
