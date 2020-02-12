@@ -1,41 +1,45 @@
 cache: pip
-
 language: python
-
 include:
-    - name: "Python 3.5.0 on Linux"
-      python: 3.5           # this works for Linux but is ignored on macOS or Windows
-    - name: "Python 3.5.0 on macOS"
-      os: osx
-      osx_image: xcode11.2  # Python 3.7.4 running on macOS 10.14.4
-      language: shell       # 'language: python' is an error on Travis CI macOS
-    - name: "Python 3.5.0 on Windows"
-      os: windows           # Windows 10.0.17134 N/A Build 17134
-      language: shell       # 'language: python' is an error on Travis CI Windows
-      before_install:
-        - python -m pip install --upgrade pip
-      env: PATH=/c/Python35:/c/Python35/Scripts:$PATH
-
+- name: Python 3.5.0 on Linux
+  python: 3.5
+- name: Python 3.5.0 on macOS
+  os: osx
+  osx_image: xcode11.2
+  language: shell
+- name: Python 3.5.0 on Windows
+  os: windows
+  language: shell
+  before_install:
+  - python -m pip install --upgrade pip
+  env: PATH=/c/Python35:/c/Python35/Scripts:$PATH
 python:
-  - "3.5"
-
+- '3.5'
+- '3.6'
+- '3.7'
 install:
-  - pip install coverage
-  - pip install codecov
+- pip install coverage
+- pip install codecov
 script:
-  - coverage run tests/server_tests.py -v
-  - coverage run tests/client_tests2.py -v
-  - coverage run tests/client_tests.py -v
-  - coverage report -m
-  - codecov -t a75972c8-bbc9-4332-aa8b-5e06c45b655e
-
+- coverage run tests/server_tests.py -v
+- coverage run tests/client_tests2.py -v
+- coverage run tests/client_tests.py -v
+- coverage report -m
+- codecov -t a75972c8-bbc9-4332-aa8b-5e06c45b655e
 branches:
   only:
-    - master
-    - dev
-
+  - master
+  - dev
 notifications:
-#  email: false  # turn off notification
   slack:
-    on_success: change # default: change
-    on_failure: never # default: always
+    on_success: change
+    on_failure: never
+deploy:
+  skip_cleanup: true
+  provider: pypi # push to pypi
+  user: leigg # pypi username
+  true:
+    tags: true # push only on new release
+    branch: master # only publish master
+  password:
+    secure: HRmhX0+VAD6lzMIPzVnv3yQxambdgyC6L/d4RFlrR/E2ArQiOt487pmQNpUg32iN4g8DlbxaDjO0ZijOzjPVNwEMCFkGKCCd1Obo2ETBHr5QvrzISKRvPxsOaYt0mYdv9G8nP2WSrYbYSeSqu4FVrZ0swBemOrpfqXqDbWAX14+IiG5+dkSouwroUIHkx91ryiFjMq9+KOHPLFz9ybI+ImCWBOQND21cAveNyAdEXgCEvQTRqV/cZoRNoLfXV0AgMMR1dSSwNDRxdWNg3e8bRaeMTkaDM5ncBvAUXrDr2mynKouDNj8MrfUpgoKKskgW8ayTw2Jz7hJsSLJABFmkX1U+3ucZNhJZUxeji1r4L5EUbjqlCFfGBdo7SAhqo43QTLw4zvSOaQBtNK9v97+jkENFJZHJ6PMYXKGEtT9Dy7SptmSslQE2yTmtZErWW/BZG/KnJZT92fH/Zfl+cnyUzuozfbE4zvzvzwOYiS6qO9XVf/HvQ4bTGifSSQKPhwAVSDPHGyJTLqdcpisANVS/95bSkv/LNc8z58v0OSrpFMYrQNwk+/x3kZtaIPuLW3uqIdFsty5DxmX0sb9RbGfuJ/q2U2EqcDWZ0KU+l5gC5eX3opu1goMFMSFIhgtz59mGQiLQQp7ER7gAiy423Y/oTUnaSmzfDodV6sZkqOgm+Dk=
