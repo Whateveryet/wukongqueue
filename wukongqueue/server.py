@@ -21,7 +21,7 @@ from .utils import (
 
 
 class _ClientStatistic:
-    def __init__(self, client_addr, conn):
+    def __init__(self, client_addr, conn: TcpConn):
         self.client_addr = client_addr
         self.me = str(client_addr)
         self.conn = conn
@@ -336,35 +336,33 @@ class WuKongQueue:
                 pass
 
     @staticmethod
-    def _parse_socket_msg(conn, **kw):
+    def _parse_socket_msg(conn: TcpConn, **kw):
         ignore_socket_timeout = kw.pop("ignore_socket_timeout", False)
-        reply_msg = read_wukong_data(
-            conn, ignore_socket_timeout=ignore_socket_timeout
-        )
+        reply_msg = conn.read(ignore_socket_timeout=ignore_socket_timeout)
         if not reply_msg.is_valid():
             return
         reply_msg.unwrap()
         return reply_msg
 
-    def _auth(self, conn, client_stat: _ClientStatistic):
+    def _auth(self, conn: TcpConn, client_stat: _ClientStatistic):
         def auth_core():
             if self._auth_key is None:
                 return True
-            reply_msg = self._parse_socket_msg(conn)
+            reply_msg = self._parse_socket_msg(conn=conn)
             if reply_msg is not None:
                 cmd = reply_msg.queue_params_object.cmd
                 args = reply_msg.queue_params_object.args
                 if cmd == QUEUE_AUTH_KEY:
                     if args["auth_key"] == self._auth_key:
-                        write_wukong_data(conn, WuKongPkg(QUEUE_OK))
+                        conn.write(QUEUE_OK)
                         return True
                     else:
-                        write_wukong_data(conn, WuKongPkg(QUEUE_FAIL))
+                        conn.write(QUEUE_FAIL)
                         return False
             return False
 
         if auth_core():
-            client_stat.conn.settimeout(self.socket_timeout)
+            client_stat.conn.sock.settimeout(self.socket_timeout)
             with self._statistic_lock:
                 self.client_stats[client_stat.me] = client_stat
                 return True
@@ -380,27 +378,29 @@ class WuKongQueue:
     def _run(self):
         while True:
             try:
-                conn, addr = self._tcp_svr.accept()
-                conn.settimeout(self.socket_connect_timeout)
+                sock, addr = self._tcp_svr.accept()
+                sock.settimeout(self.socket_connect_timeout)
             except OSError:
                 return
-            client_stat = _ClientStatistic(client_addr=addr, conn=conn)
+
+            tcp_conn = TcpConn(sock=sock)
+            client_stat = _ClientStatistic(client_addr=addr, conn=tcp_conn)
             with self._statistic_lock:
                 if self.max_clients > 0:
                     if self.max_clients <= len(self.client_stats):
                         # client will receive a empty byte, that represents
                         # clients fulled!
-                        conn.close()
+                        tcp_conn.close()
                         continue
 
             # send hi message on connected
-            ok, err = write_wukong_data(conn, WuKongPkg(QUEUE_HI))
+            ok = tcp_conn.write(QUEUE_HI)
             if ok:
                 # it's a must to authenticate firstly
-                if self._auth(conn=conn, client_stat=client_stat):
+                if self._auth(conn=tcp_conn, client_stat=client_stat):
                     new_thread(
                         self.process_conn,
-                        kw={"conn": conn, "me": client_stat.me},
+                        kw={"conn": tcp_conn, "me": client_stat.me},
                     )
                     self._logger.info(
                         "[server:%s] new client from %s"
@@ -408,21 +408,21 @@ class WuKongQueue:
                     )
                     continue
                 # auth failed!
-                conn.close()
+                tcp_conn.close()
                 continue
             else:
                 # please report this problem with your python version and
                 # wukongqueue package version on
                 # https://github.com/chaseSpace/wukongqueue/issues
-                self._logger.fatal("write_wukong_data err:%s" % err)
+                self._logger.fatal("write_wukong_data err:%s" % tcp_conn.err)
                 return
 
-    def process_conn(self, me, conn):
+    def process_conn(self, me, conn: TcpConn):
         """run as thread at all"""
         with _WkSvrHelper(wk_inst=self, client_key=me):
             while True:
                 reply_msg = self._parse_socket_msg(
-                    conn, ignore_socket_timeout=True
+                    conn=conn, ignore_socket_timeout=True
                 )
                 if reply_msg is None:
                     return
@@ -446,13 +446,10 @@ class WuKongQueue:
                             block=args["block"], timeout=args["timeout"]
                         )
                     except Empty:
-                        write_wukong_data(conn, WuKongPkg(QUEUE_EMPTY))
+                        conn.write(QUEUE_EMPTY)
                     else:
-                        write_wukong_data(
-                            conn,
-                            WuKongPkg(
-                                wrap_queue_msg(queue_cmd=QUEUE_DATA, data=item)
-                            ),
+                        conn.write(
+                            wrap_queue_msg(queue_cmd=QUEUE_DATA, data=item)
                         )
 
                 # PUT
@@ -462,60 +459,47 @@ class WuKongQueue:
                             data, block=args["block"], timeout=args["timeout"]
                         )
                     except Full:
-                        write_wukong_data(conn, WuKongPkg(QUEUE_FULL))
+                        conn.write(QUEUE_FULL)
                     else:
-                        write_wukong_data(conn, WuKongPkg(QUEUE_OK))
+                        conn.write(QUEUE_OK)
 
                 # STATUS QUERY
                 elif cmd == QUEUE_QUERY_STATUS:
                     # FULL | EMPTY | NORMAL
                     if self.full():
-                        write_wukong_data(conn, WuKongPkg(QUEUE_FULL))
+                        conn.write(QUEUE_FULL)
                     elif self.empty():
-                        write_wukong_data(conn, WuKongPkg(QUEUE_EMPTY))
+                        conn.write(QUEUE_EMPTY)
                     else:
-                        write_wukong_data(conn, WuKongPkg(QUEUE_NORMAL))
+                        conn.write(QUEUE_NORMAL)
 
                 # PING -> PONG
                 elif cmd == QUEUE_PING:
-                    write_wukong_data(conn, WuKongPkg(QUEUE_PONG))
+                    conn.write(QUEUE_PONG)
 
                 # QSIZE
                 elif cmd == QUEUE_SIZE:
-                    write_wukong_data(
-                        conn,
-                        WuKongPkg(
-                            wrap_queue_msg(
-                                queue_cmd=QUEUE_DATA, data=self.qsize(),
-                            )
-                        ),
+                    conn.write(
+                        wrap_queue_msg(queue_cmd=QUEUE_DATA, data=self.qsize())
                     )
 
                 # MAXSIZE
                 elif cmd == QUEUE_MAXSIZE:
-                    write_wukong_data(
-                        conn,
-                        WuKongPkg(
-                            wrap_queue_msg(
-                                queue_cmd=QUEUE_DATA, data=self.maxsize,
-                            )
-                        ),
+                    conn.write(
+                        wrap_queue_msg(queue_cmd=QUEUE_DATA, data=self.maxsize)
                     )
 
                 # RESET
                 elif cmd == QUEUE_RESET:
                     self.reset(args["maxsize"])
-                    write_wukong_data(conn, WuKongPkg(QUEUE_OK))
+                    conn.write(QUEUE_OK)
 
                 # CLIENTS NUMBER
                 elif cmd == QUEUE_CLIENTS:
                     with self._statistic_lock:
                         clients = len(self.client_stats.keys())
-                    write_wukong_data(
-                        conn,
-                        WuKongPkg(
-                            wrap_queue_msg(queue_cmd=QUEUE_DATA, data=clients,)
-                        ),
+                    conn.write(
+                        wrap_queue_msg(queue_cmd=QUEUE_DATA, data=clients)
                     )
 
                 # TASK_DONE
@@ -526,18 +510,15 @@ class WuKongQueue:
                     except ValueError as e:
                         reply["cmd"] = QUEUE_FAIL
                         reply["err"] = e
-                    write_wukong_data(
-                        conn,
-                        WuKongPkg(
-                            wrap_queue_msg(
-                                queue_cmd=reply["cmd"], exception=reply["err"]
-                            )
-                        ),
+                    conn.write(
+                        wrap_queue_msg(
+                            queue_cmd=reply["cmd"], exception=reply["err"]
+                        )
                     )
 
                 # JOIN
                 elif cmd == QUEUE_JOIN:
                     self.join()
-                    write_wukong_data(conn, WuKongPkg(QUEUE_OK))
+                    conn.write(QUEUE_OK)
                 else:
                     raise UnknownCmd(cmd)
