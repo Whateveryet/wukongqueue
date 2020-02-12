@@ -3,7 +3,6 @@
 import json
 import socket
 from base64 import b64encode, b64decode
-from copy import deepcopy
 
 from ._item_wrapper import item_wrapper, item_unwrap
 from .utils import Unify_encoding
@@ -12,6 +11,7 @@ __all__ = [
     "read_wukong_data",
     "write_wukong_data",
     "WuKongPkg",
+    "TcpConn",
     "TcpSvr",
     "TcpClient",
     "wrap_queue_msg",
@@ -60,10 +60,11 @@ _queue_msg_except_index = 3
 
 
 def wrap_queue_msg(
-    queue_cmd: bytes, args={}, data=None, exception=None
+    queue_cmd: bytes, args=None, data=None, exception=None
 ) -> bytes:
     # base64 does not contain `*`
     item_wrapped = item_wrapper(data)
+    args = args or {}
     return _queue_msg_delimiter.join(
         [
             b64encode(queue_cmd),
@@ -122,64 +123,83 @@ class WuKongPkg:
         self.queue_params_object = unwrap_queue_msg(self.raw_data)
 
 
-# stream delimiter
-delimiter = b"bye:)"
-delimiter_escape = b"bye:]"
-delimiter_len = len(delimiter)
+"""
+Stream READ/WRITE protocol for TCP communication
+"""
 
-# max read/write to 4KB
-MAX_BYTES = 1 << 12
+# msg header delimiter
+HEADER_DELIMITER = b"\n"
 
-# buffer
-_STREAM_BUFFER = []
+SEGMENT_MAX_SIZE = 9999
+
+# `__body_mark_length` represents length of body's mark
+# + \n
+# T/F represent if has next segment
+__body_mark_length = len(str(SEGMENT_MAX_SIZE).encode())
+
+__BYTES_EXAMPLE = HEADER_DELIMITER.join([__body_mark_length * b"9", b"T"])
+
+BYTES_HEADER_LEN = len(__BYTES_EXAMPLE)
+
+HAS_NEXT_SEGMENT_INDEX = __BYTES_EXAMPLE.index(b"T")
 
 
 def read_wukong_data(
-    conn: socket.socket, ignore_socket_timeout=False
+    conn: socket.socket, ignore_socket_timeout=False,
 ) -> WuKongPkg:
     """Block read from tcp socket connection"""
-    global _STREAM_BUFFER
 
-    buffer = deepcopy(_STREAM_BUFFER)
-    _STREAM_BUFFER.clear()
+    buffer = bytearray()
+    msg_body_size = -1
+    has_next_segment = False
 
     while True:
         try:
-            data = conn.recv(MAX_BYTES)
+            if msg_body_size == -1:
+                # firstly, recv msg header
+                msg_header_bytes = conn.recv(BYTES_HEADER_LEN)
+                if len(msg_header_bytes) == 0:
+                    return WuKongPkg(is_socket_closed=True)
+                msg_body_size = int(
+                    msg_header_bytes[:4].replace(b"x", b"").decode()
+                )
+                if msg_body_size == 0:
+                    break
+                if msg_header_bytes[HAS_NEXT_SEGMENT_INDEX] == ord(b"T"):
+                    has_next_segment = True
+                else:
+                    has_next_segment = False
+
+            # then recv msg body
+            data = conn.recv(msg_body_size)
         except socket.timeout as e:
             if ignore_socket_timeout:
                 continue
             return WuKongPkg(err="%s,%s" % (socket.timeout, e.args))
         except socket.error as e:
             return WuKongPkg(err="%s,%s" % (e.__class__, e.args))
+
         # if data is empty byte,that represents the conn was closed by peer.
-        if data == b"":
+        if len(data) == 0:
             return WuKongPkg(is_socket_closed=True)
+        buffer.extend(data)
 
-        bye_index = data.find(delimiter)
-        if bye_index == -1:
-            buffer.append(data)
-            continue
-
-        buffer.append(data[:bye_index])
-        if len(data) < bye_index + delimiter_len:
-            _STREAM_BUFFER.append(data[bye_index + delimiter_len :])
-        break
-    msg = b"".join(buffer).replace(delimiter_escape, delimiter)
-    ret = WuKongPkg(msg)
+        if not has_next_segment:
+            break
+        # reset msg_body_size, then read it again from next segment
+        msg_body_size = -1
+    ret = WuKongPkg(bytes(buffer))
     return ret
 
 
 def write_wukong_data(conn: socket.socket, msg: WuKongPkg) -> (bool, str):
-    """NOTE: Sending an empty string is allowed"""
+    """NOTE: send an empty byte is allowed"""
 
-    # `+delimiter` ensure never send a empty byte to peer
-    _bytes_msg = msg.raw_data.replace(delimiter, delimiter_escape) + delimiter
-    _bytes_msg_len = len(_bytes_msg)
+    _bytes_msg_len = len(msg.raw_data)
     sent_index = -1
     err = ""
 
-    def _send_msg(msg: bytes):
+    def _send_bytes(msg: bytes):
         try:
             conn.send(msg)
             return True
@@ -188,28 +208,43 @@ def write_wukong_data(conn: socket.socket, msg: WuKongPkg) -> (bool, str):
             err = "%s,%s" % (e.__class__, e.args)
             return False
 
+    # split segment to send
     while sent_index < _bytes_msg_len:
         sent_index = 0 if sent_index == -1 else sent_index
-        will_send_data = _bytes_msg[sent_index : sent_index + MAX_BYTES]
-        if not _send_msg(will_send_data):
+        has_next = b"F"
+        end = sent_index + SEGMENT_MAX_SIZE
+        if _bytes_msg_len > end:
+            has_next = b"T"
+        part_raw_msg = msg.raw_data[sent_index:end]
+        msg_len = str(len(part_raw_msg)).encode()
+
+        # fixed length
+        msg_len = (4 - len(msg_len)) * b"x" + msg_len
+        header = HEADER_DELIMITER.join([msg_len, has_next])
+        need_send_bytes = b"".join([header, part_raw_msg])
+        if not _send_bytes(need_send_bytes):
             return False, err
-        sent_index += MAX_BYTES
+        sent_index += SEGMENT_MAX_SIZE
 
     return True, err
 
 
 class TcpConn:
-    def __init__(self, conn_timeout=None):
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.settimeout(conn_timeout)
+    def __init__(self, sock=None, conn_timeout=None):
+        self.sock = sock
+        if sock is None:
+            self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.sock.settimeout(conn_timeout)
         self.err = None
 
     def write(self, data) -> bool:
         ok, self.err = write_wukong_data(self.sock, WuKongPkg(data))
         return ok
 
-    def read(self):
-        return read_wukong_data(self.sock)
+    def read(self, ignore_socket_timeout=False):
+        return read_wukong_data(
+            self.sock, ignore_socket_timeout=ignore_socket_timeout
+        )
 
     def close(self):
         self.sock.close()
