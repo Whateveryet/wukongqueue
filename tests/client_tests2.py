@@ -131,6 +131,7 @@ class ClientTests(TestCase):
             svr.close()
             self.assertRaises(ConnectionError, client.full)
             self.assertRaises(ConnectionError, client.full)
+            time.sleep(1)
             svr.run()
             # wait health check time is up, then try recover connection
             time.sleep(1)

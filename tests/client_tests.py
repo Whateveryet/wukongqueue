@@ -185,7 +185,7 @@ class ClientTests(TestCase):
             with new_svr(port=mport, dont_change_port=True,
                          log_level=logging.INFO)[0]:
                 self.assertIs(client.connected(), True)
-
+            time.sleep(1)
         client = WuKongQueueClient(
             host=host,
             port=mport,
