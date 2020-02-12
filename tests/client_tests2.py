@@ -121,9 +121,10 @@ class ClientTests(TestCase):
                 time.sleep(2)
 
     def test_check_health(self):
-        svr, mport = new_svr(max_size=max_size)
+        svr, mport = new_svr(max_size=max_size, log_level=logging.WARNING)
         client = WuKongQueueClient(host=host,
                                    port=mport,
+                                   log_level=logging.WARNING,
                                    check_health_interval=1)
         with client:
             client.full()
