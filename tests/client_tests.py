@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
-import time,logging
-from unittest import TestCase
+import logging
 import sys
+import time
+from unittest import TestCase
+
 sys.path.append("../")
 try:
     from wukongqueue.wukongqueue import *
@@ -82,7 +84,8 @@ class ClientTests(TestCase):
 
             loop = 9
             for i in range(loop):
-                client = WuKongQueueClient(host=host, port=mport)
+                client = WuKongQueueClient(host=host, port=mport,
+                                           log_level=logging.FATAL)
                 c.append(client)
                 # print(client.connected_clients(),i+1)
                 self.assertEqual(client.connected_clients(), i + 1)
@@ -103,7 +106,8 @@ class ClientTests(TestCase):
         """
         svr, mport = new_svr(log_level=logging.FATAL)
         with svr.helper():
-            client = WuKongQueueClient(host=host, port=mport)
+            client = WuKongQueueClient(host=host, port=mport,
+                                       log_level=logging.FATAL)
             with client.helper():
                 client.reset(5)
                 self.assertEqual(client.realtime_maxsize(), 5)
@@ -123,7 +127,8 @@ class ClientTests(TestCase):
         """
         svr, mport = new_svr(log_level=logging.FATAL)
         with svr.helper():
-            client = WuKongQueueClient(host=host, port=mport)
+            client = WuKongQueueClient(host=host, port=mport,
+                                       log_level=logging.FATAL)
             with client.helper():
                 client.reset(maxsize=1)
                 client.put(block=True, timeout=1, item="1")
@@ -159,7 +164,8 @@ class ClientTests(TestCase):
         with svr.helper():
             clients = 10
             for i in range(clients):
-                client = WuKongQueueClient(host=host, port=mport)
+                client = WuKongQueueClient(host=host, port=mport,
+                                           log_level=logging.FATAL)
                 new_thread(_thread, {"the_client": client})
 
             for str_num in put_strs:
@@ -174,7 +180,7 @@ class ClientTests(TestCase):
             host=host,
             port=mport,
             silence_err=True,
-            log_level=logging.DEBUG
+            log_level=logging.FATAL
         )
         with client.helper():
             self.assertIs(client.connected(), False)
@@ -183,7 +189,7 @@ class ClientTests(TestCase):
             self.assertIs(client.full() and client.empty(), False)
 
             with new_svr(port=mport, dont_change_port=True,
-                         log_level=logging.INFO)[0]:
+                         log_level=logging.WARNING)[0]:
                 self.assertIs(client.connected(), True)
             time.sleep(1)
         client = WuKongQueueClient(
@@ -200,14 +206,15 @@ class ClientTests(TestCase):
             self.assertRaises(ConnectionError, client.empty)
 
     def test_authenticate(self):
-        svr, mport = new_svr(log_level=logging.INFO)
+        svr, mport = new_svr(log_level=logging.WARNING)
         with svr.helper():
             # auth_key is None, don't need authenticate
-            with WuKongQueueClient(host=host, port=mport) as client:
+            with WuKongQueueClient(host=host, port=mport,
+                                   log_level=logging.WARNING) as client:
                 client.put("1")
 
         auth = '123'
-        svr, mport = new_svr(auth=auth, log_level=logging.INFO)
+        svr, mport = new_svr(auth=auth, log_level=logging.WARNING)
         with svr.helper():
             with WuKongQueueClient(host=host,
                                    port=mport,
@@ -223,18 +230,20 @@ class ClientTests(TestCase):
                 pass
 
     def test_join(self):
-        svr, mport = new_svr(log_level=logging.INFO)
+        svr, mport = new_svr(log_level=logging.WARNING)
         join = False
 
         def do_join():
-            with WuKongQueueClient(host=host, port=mport)as client:
+            with WuKongQueueClient(host=host, port=mport,
+                                   log_level=logging.WARNING)as client:
                 time.sleep(0.5)
                 client.join()
                 nonlocal join
                 join = True
 
         with svr.helper():
-            with WuKongQueueClient(host=host, port=mport)as client:
+            with WuKongQueueClient(host=host, port=mport,
+                                   log_level=logging.WARNING)as client:
                 new_thread(do_join)
                 client.put('1')
                 client.put('2')
@@ -246,9 +255,10 @@ class ClientTests(TestCase):
                 self.assertRaises(ValueError, client.task_done)
 
     def test_all_type_item(self):
-        svr, mport = new_svr(max_size=0, log_level=logging.INFO)
+        svr, mport = new_svr(max_size=0, log_level=logging.WARNING)
         with svr.helper():
-            with WuKongQueueClient(host=host, port=mport)as client:
+            with WuKongQueueClient(host=host, port=mport,
+                                   log_level=logging.WARNING)as client:
                 test_item = [
                     b'123',
                     '123',
