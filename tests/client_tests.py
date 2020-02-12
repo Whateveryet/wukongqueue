@@ -176,7 +176,7 @@ class ClientTests(TestCase):
             self.assertEqual(Sum, _tmp_sum)
 
     def test_silence_err(self):
-        mport = 65530
+        mport = 8848
         client = WuKongQueueClient(
             host=host,
             port=mport,
@@ -192,15 +192,9 @@ class ClientTests(TestCase):
             with new_svr(port=mport, dont_change_port=True,
                          log_level=logging.FATAL)[0]:
                 self.assertIs(client.connected(), True)
-            time.sleep(1)
-        client = WuKongQueueClient(
-            host=host,
-            port=mport,
-            silence_err=False,
-            log_level=logging.FATAL
-        )
+
         with client.helper():
-            # self.assertIs(client.connected(), False)
+            self.assertIs(client.connected(), False)
             self.assertRaises(ConnectionError, client.realtime_qsize)
             self.assertRaises(ConnectionError, client.realtime_maxsize)
             self.assertRaises(ConnectionError, client.full)
