@@ -26,7 +26,7 @@ class Connection:
         port,
         auth_key=None,
         check_health_interval=None,
-        socket_keepalive=True,
+        socket_keepalive=False,
         socket_keepalive_options=None,
         socket_timeout=None,
         socket_connect_timeout=None,
@@ -34,8 +34,8 @@ class Connection:
         silence_err=True,
         log_level=logging.DEBUG,
         logger=None,
-        encoding=None,
-        encoding_err=None,
+        # encoding=None,
+        # encoding_err=None,
     ):
         # validate these args outside.
         self.server_addr = (host, port)
