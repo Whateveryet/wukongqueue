@@ -1,256 +1,209 @@
-from queue import Empty, Full
-from types import FunctionType
+# -*- coding: utf-8 -*-
+
+import logging
 
 from ._commu_proto import *
-from ._item_wrapper import item_wrapper, item_unwrap
-from .utils import *
-
-__all__ = [
-    "WuKongQueueClient",
-    "Disconnected",
-    "Empty",
-    "Full",
-    "AuthenticationFail",
-    "ClientsFull",
-    "ConnectionFail",
-    "CannotConcurrentCallBlockMethod",
-    "NotYetSupportType",
-]
-
-
-class ConnectionFail(Exception):
-    pass
-
-
-class ClientsFull(Exception):
-    pass
-
-
-class Disconnected(Exception):
-    pass
-
-
-class AuthenticationFail(Exception):
-    pass
-
-
-class CannotConcurrentCallBlockMethod(Exception):
-    """client cannot call block method within multi-threading
-    """
-
-    pass
-
-
-class NotYetSupportType(Exception):
-    pass
+from .connection import ConnectionPool
+from .exceptions import (
+    NotYetSupportType,
+    Empty,
+    Full,
+    ConnectionError,
+    WuKongError,
+)
+from .utils import Unify_encoding, get_logger, md5, helper
 
 
 class WuKongQueueClient:
     def __init__(
         self,
-        host,
-        port,
-        *,
-        auto_reconnect=False,
-        pre_connect=False,
+        host="localhost",
+        port=8848,
+        auth_key=None,
+        socket_connect_timeout=None,
+        connection_pool=None,
         silence_err=False,
         **kwargs
     ):
         """
-        :param host: ...
-        :param port: ...
-        :param auto_reconnect: do reconnect when conn is disconnected,
-        instead of `raise` an exception
-        :param pre_connect: by default, the class raises an exception
-        when it fails to initialize connection, if `pre_conn` is true,
-        you can success to initialize client although server is not
-        ready yet
-        :param silence_err:when suddenly disconnected,api raises
-        exception <Disconnected> by default; if silence_err is True,
-        return default value, do logging for `get` and `put`
+        :param host: host
+        :param port: port
+        :param auth_key: str used for server side authentication, it will be
+        encrypted for transmission over the network
+        :param silence_err:when connection is not ready yet or disconnected,
+        most of apis raises ConnectionError by default; if silence_err is set
+        to True, apis returns default value, and logs error info to stderr
+        :param socket_connect_timeout: maximum time to establish connection with
+        server, raises ConnectionTimeout if time out; but not raises exception
+        if silence_err is set to True
+        :param connection_pool: use connection pool to improve efficiency in a
+        multi-threaded environment by default
 
         A number of optional keyword arguments may be specified, which
-        can alter the default behaviour.
+        can alter the default behaviour
 
         log_level: pass with stdlib logging.DEBUG/INFO/WARNING.., to
         control the WuKongQueue's logging level that output to stderr
 
-        auth_key: str used for server side authentication, it will be
-        encrypted for transmission over the network
+        connection_cls: tcp connection management class
+
+        check_health_interval: in seconds, if the time from last time of check
+        health exceeds `check_health_interval`, client will check if the
+        connection is health, see the default value in wukongqueue.Connection
+        class
+
+        retry_on_disconnect: The default is false. if set true, the operation in
+        progress will be retried on disconnect, otherwise, if also not the
+        health check time, it will decide how to process error according to
+        arg `silence_err`
+
+        single_connection_client: use connection pool with no limitation to
+        connections by default, you can use only single connection by set
+        this arg to True
+
+        socket_keepalive: whether to open socket keepalive
+
+        socket_keepalive_options: if set `socket_keepalive` is true, this arg
+        will be set up by socket.setsockopt(socket.IPPROTO_TCP, k, v)
+
+        encoding: unified encoding standard
+
+        encoding_error: set a different error handling scheme
         """
+
+        self._logger = get_logger(self, kwargs.pop("log_level", logging.DEBUG))
         self.server_addr = (host, port)
-        self.auto_reconnect = bool(auto_reconnect)
-        self._pre_conn = pre_connect
-        self._silence_err = bool(silence_err)
 
-        log_level = kwargs.pop("log_level", logging.DEBUG)
-        self._logger = get_logger(self, log_level)
+        encoding = kwargs.pop("encoding", Unify_encoding)
+        encoding_err = kwargs.pop("encoding_err", "strict")
 
-        self._auth_key = None
-        auth_key = kwargs.pop("auth_key", None)
-        if auth_key is not None:
-            self._auth_key = md5(auth_key.encode(Unify_encoding))
-
-        # some methods that will block cannot be called within
-        # multi-threading
-        self.socket_commu_lock = threading.Lock()
-        self._do_connect()
-
-    def _do_connect(self, on_init=True) -> bool:
-        # not connect to server if _pre_conn is true and on_init
-        if self._pre_conn:
-            if on_init:
-                self._tcp_client = None
-                return False
-            else:
-                # if on_init is false, do connect to server
-                pass
-        try:
-            # if fail to connect to server, self._tcp_client = None
-            self._tcp_client = None
-            self._tcp_client = TcpClient(*self.server_addr)
-            wukong_pkg = self._tcp_client.read()
-            if wukong_pkg.err:
-                self._tcp_client.close()
-                raise ConnectionFail(wukong_pkg.err)
-            elif wukong_pkg.closed:
-                self._tcp_client.close()
-                raise ClientsFull(
-                    "The WuKongQueue server %s is full" % str(self.server_addr)
+        self._is_new_pool = True
+        if connection_pool is None:
+            auth_key = (
+                auth_key
+                if auth_key is None
+                else md5(
+                    auth_key.encode(encoding=encoding, errors=encoding_err)
                 )
-            elif wukong_pkg.raw_data == QUEUE_HI:
-                if self._do_authenticate(self._auth_key) is False:
-                    self._tcp_client.close()
-                    raise AuthenticationFail(
-                        "WuKongQueue server-addr:%s "
-                        "authentication failed" % str(self.server_addr)
-                    )
-                # connect success!
-                self._logger.info(
-                    "successfully connected to %s!" % str(self.server_addr)
-                )
-                return True
-            else:
-                self._tcp_client.close()
-                raise ValueError("unknown response:%s" % wukong_pkg.raw_data)
-
-        except Exception as e:
-            self._logger.warning(
-                "failed to connect to %s, err:%s,%s"
-                % (str(self.server_addr), e.__class__, e.args)
             )
-            if self._silence_err is False or (self._silence_err and on_init):
-                if not isinstance(e, ConnectionRefusedError):
-                    raise e
-            return False
+            check_health_interval = kwargs.pop("check_health_interval", None)
+            if isinstance(check_health_interval, int):
+                if check_health_interval < 0:
+                    check_health_interval = None
+            connection_kwargs = {
+                "host": host,
+                "port": port,
+                "auth_key": auth_key,
+                "socket_connect_timeout": socket_connect_timeout,
+                "check_health_interval": check_health_interval,
+                "silence_err": silence_err,
+                "logger": self._logger,
+                "socket_timeout": kwargs.pop("socket_timeout", None),
+                "max_connections": kwargs.pop("max_connections", 0),
+                "retry_on_disconnect": kwargs.pop("retry_on_disconnect", False),
+                "encoding": encoding,
+                "encoding_err": encoding_err,
+            }
 
-    def put(self, item, block=True, timeout=None, encoding=Unify_encoding):
+            if kwargs.pop("socket_keepalive", False) is True:
+                connection_kwargs.update(
+                    {
+                        "socket_keepalive": True,
+                        "socket_keepalive_options": kwargs.pop(
+                            "socket_keepalive_options", None
+                        ),
+                    }
+                )
+            self._is_new_pool = False
+            connection_pool = ConnectionPool(**connection_kwargs)
+        else:
+            self.server_addr = connection_pool.server_addr
+        self.connection_pool = connection_pool
+        self.connection = None
+
+        single_connection_client = kwargs.pop("single_connection_client", False)
+        if single_connection_client:
+            self.connection = self.connection_pool.get_connection()
+
+    def put(self, item, block=True, timeout=None):
         """
-        :param item: item will be put in server's queue
-        :param encoding: not use now, just for compatibility.
-
-        Usage for block and timeout see also WuKongQueue.put
+        :param item: put an item to queue server
+        :param block: see also WuKongQueue.put
+        :param timeout: see also WuKongQueue.put
         """
-        assert isinstance(block, bool), "wrong block arg type:%s" % type(block)
-        if timeout is not None:
-            assert type(timeout) in [int, float], "invalid timeout"
-
-        if self.connected() is False:
-            self._process_disconnect()
-            return
-
+        assert type(timeout) in [int, float, type(None)], (
+            "invalid timeout %s" % timeout
+        )
         try:
-            item_wrapped = item_wrapper(item)
+            cmd = wrap_queue_msg(
+                queue_cmd=QUEUE_PUT,
+                args={"block": block, "timeout": timeout},
+                data=item,
+            )
         except Exception as e:
             raise NotYetSupportType(
                 "%s is not supported yet, wrapping err:%s %s"
                 % (type(item), e, e.args)
             )
 
-        wukong_pkg = self._talk_with_svr(
-            wrap_queue_msg(
-                queue_cmd=QUEUE_PUT,
-                args={"block": block, "timeout": timeout},
-                data=item_wrapped,
-            )
-        )
-
-        if not wukong_pkg.is_valid():
-            self._process_disconnect()
-        elif wukong_pkg.raw_data == QUEUE_FULL:
+        reply_msg = self._send_command(cmd)
+        if reply_msg is None:
+            return
+        elif reply_msg.raw_data == QUEUE_FULL:
             raise Full(
                 "WuKongQueue server-addr:%s is full" % str(self.server_addr)
             )
-        # wukong_pkg.raw_data == QUEUE_OK if put success!
 
-    def get(
-        self, block=True, timeout=None, convert_method: FunctionType = None,
-    ):
+    def get(self, block=True, timeout=None, convert_method=None):
         """
-        :param convert_method: function for convert item
+        :param block: see also WuKongQueue.get
+        :param timeout: see also WuKongQueue.get
+        :param convert_method: callable object to convert item
+        :return: AnyType
 
-        Usage for block and timeout see also WuKongQueue.get
+        Note: if self.silence_err is set to True, return None when disconnected
         """
-
-        assert isinstance(block, bool), "wrong block arg type:%s" % type(block)
-        if convert_method is not None:
+        if convert_method:
             assert callable(convert_method), (
                 "not a callable obj:%s" % convert_method
             )
-        if timeout is not None:
-            assert type(timeout) in [int, float], "invalid timeout"
 
-        if self.connected() is False:
-            self._process_disconnect()
-            return
-
-        wukong_pkg = self._talk_with_svr(
-            wrap_queue_msg(
-                queue_cmd=QUEUE_GET, args={"block": block, "timeout": timeout},
-            )
+        assert type(timeout) in [int, float, type(None)], (
+            "invalid timeout %s" % timeout
         )
 
-        if not wukong_pkg.is_valid():
-            self._process_disconnect()
-        if wukong_pkg.raw_data == QUEUE_EMPTY:
+        cmd = wrap_queue_msg(
+            queue_cmd=QUEUE_GET, args={"block": block, "timeout": timeout}
+        )
+        reply_msg = self._send_command(cmd)
+        if reply_msg is None:
+            return
+        elif reply_msg.raw_data == QUEUE_EMPTY:
             raise Empty(
                 "WuKongQueue server-addr:%s is empty" % str(self.server_addr)
             )
-
-        ret = unwrap_queue_msg(wukong_pkg.raw_data)
-        item = item_unwrap(ret["data"])
+        reply_msg.unwrap()
+        item = reply_msg.queue_params_object.data
 
         if convert_method:
             return convert_method(item)
         return item
 
-    def full(self) -> bool:
+    def full(self):
         """Whether the queue is full"""
         default_ret = False
-        if self.connected() is False:
-            self._process_disconnect()
+        reply_msg = self._send_command(QUEUE_QUERY_STATUS)
+        if reply_msg is None:
             return default_ret
+        return reply_msg.raw_data == QUEUE_FULL
 
-        wukong_pkg = self._talk_with_svr(QUEUE_QUERY_STATUS)
-
-        if not wukong_pkg.is_valid():
-            self._process_disconnect()
-            return default_ret
-        return wukong_pkg.raw_data == QUEUE_FULL
-
-    def empty(self) -> bool:
+    def empty(self):
         """Whether the queue is empty"""
         default_ret = True
-        if self.connected() is False:
-            self._process_disconnect()
+        reply_msg = self._send_command(QUEUE_QUERY_STATUS)
+        if reply_msg is None:
             return default_ret
-
-        wukong_pkg = self._talk_with_svr(QUEUE_QUERY_STATUS)
-
-        if not wukong_pkg.is_valid():
-            self._process_disconnect()
-            return default_ret
-        return wukong_pkg.raw_data == QUEUE_EMPTY
+        return reply_msg.raw_data == QUEUE_EMPTY
 
     def task_done(self):
         """Indicates that a formerly enqueued task is complete.
@@ -265,26 +218,15 @@ class WuKongQueueClient:
 
         Raises a ValueError if called more times than there were items
         placed in the queue.
-        ---
-        If is disconnected, and if self._silence_err is False, this raises a
-        Disconnected
         """
-        if self.connected() is False:
-            self._process_disconnect()
+        reply_msg = self._send_command(QUEUE_TASK_DONE)
+        if reply_msg is None:
             return
-
-        wukong_pkg = self._talk_with_svr(QUEUE_TASK_DONE)
-
-        if not wukong_pkg.is_valid():
-            self._process_disconnect()
-            return
-
-        ret = unwrap_queue_msg(wukong_pkg.raw_data)
-
-        if ret["cmd"] == QUEUE_OK:
+        reply_msg.unwrap()
+        if reply_msg.queue_params_object.cmd == QUEUE_OK:
             return
         else:
-            raise ValueError(ret["data"])
+            raise reply_msg.queue_params_object.exception
 
     def join(self):
         """Blocks until all items in the Queue have been gotten and processed.
@@ -294,150 +236,99 @@ class WuKongQueueClient:
         to indicate the item was retrieved and all work on it is complete.
 
         When the count of unfinished tasks drops to zero, join() unblocks.
-        ---
-        If is disconnected, and if self._silence_err is False, this raises a
-        Disconnected
         """
-        if self.connected() is False:
-            self._process_disconnect()
-            return
+        self._send_command(QUEUE_JOIN)
 
-        wukong_pkg = self._talk_with_svr(QUEUE_JOIN)
-
-        if not wukong_pkg.is_valid():
-            self._process_disconnect()
-            return
-        return wukong_pkg.raw_data == QUEUE_OK
-
-    def connected(self) -> bool:
-        """Whether it is connected to the server.
-        note:this api do reconnect when `auto_connect` is True, then return
-        outcome of reconnection
-        """
-        if self._tcp_client is not None:
-            wukong_pkg = self._talk_with_svr(QUEUE_PING)
-            if not wukong_pkg.is_valid():
-                if self.auto_reconnect:
-                    return self._do_connect(on_init=False)
-                else:
-                    return False
-            else:
-                return wukong_pkg.raw_data == QUEUE_PONG
-        return self._do_connect(on_init=False)
-
-    def realtime_qsize(self) -> int:
+    def realtime_qsize(self):
         default_ret = 0
-        if self.connected() is False:
-            self._process_disconnect()
+        reply_msg = self._send_command(QUEUE_SIZE)
+        if reply_msg is None:
             return default_ret
+        reply_msg.unwrap()
+        return reply_msg.queue_params_object.data
 
-        wukong_pkg = self._talk_with_svr(QUEUE_SIZE)
-
-        if not wukong_pkg.is_valid():
-            self._process_disconnect()
-            return default_ret
-        ret = unwrap_queue_msg(wukong_pkg.raw_data)
-        return int(ret["data"])
-
-    def realtime_maxsize(self) -> int:
+    def realtime_maxsize(self):
         default_ret = 0
-        if self.connected() is False:
-            self._process_disconnect()
+        reply_msg = self._send_command(QUEUE_MAXSIZE)
+        if reply_msg is None:
             return default_ret
+        reply_msg.unwrap()
+        return reply_msg.queue_params_object.data
 
-        wukong_pkg = self._talk_with_svr(QUEUE_MAXSIZE)
-
-        if not wukong_pkg.is_valid():
-            self._process_disconnect()
-            return default_ret
-        ret = unwrap_queue_msg(wukong_pkg.raw_data)
-        return int(ret["data"])
-
-    def reset(self, maxsize=0) -> bool:
-        """Clear queue server and reset maxsize
-        """
+    def reset(self, maxsize=0):
+        """reset clear queue server and reset maxsize"""
         default_ret = False
-        if self.connected() is False:
-            self._process_disconnect()
+        msg = wrap_queue_msg(queue_cmd=QUEUE_RESET, args={"maxsize": maxsize})
+        reply_msg = self._send_command(msg)
+        if reply_msg is None:
             return default_ret
+        return reply_msg.raw_data == QUEUE_OK
 
-        wukong_pkg = self._talk_with_svr(
-            wrap_queue_msg(queue_cmd=QUEUE_RESET, args={"maxsize": maxsize})
-        )
-
-        if not wukong_pkg.is_valid():
-            self._process_disconnect()
-            return default_ret
-        return wukong_pkg.raw_data == QUEUE_OK
-
-    def connected_clients(self) -> int:
-        """Number of clients connected to the server"""
+    def connected_clients(self):
         default_ret = 0
-        if self.connected() is False:
-            self._process_disconnect()
+        reply_msg = self._send_command(QUEUE_CLIENTS)
+        if reply_msg is None:
             return default_ret
+        reply_msg.unwrap()
+        return reply_msg.queue_params_object.data
 
-        wukong_pkg = self._talk_with_svr(QUEUE_CLIENTS)
+    def connected(self):
+        try:
+            reply_msg = self._send_command(QUEUE_PING)
+        except ConnectionError:
+            return False
+        if reply_msg is None:
+            return False
+        return reply_msg.raw_data == QUEUE_PONG
 
-        if not wukong_pkg.is_valid():
-            self._process_disconnect()
-            return default_ret
-        ret = unwrap_queue_msg(wukong_pkg.raw_data)
-        return int(ret["data"])
+    def _release_conn(self, conn):
+        # release connection except single connection
+        if self.connection is None:
+            self.connection_pool.release_connection(conn)
+
+    def _send_command(self, cmd_bytes):
+        conn = self.connection or self.connection_pool.get_connection()
+        if conn is None:
+            # it's released, no need to release again
+            return
+        try:
+            reply_msg = conn.talk_with_svr(cmd_bytes)
+        except WuKongError as e:
+            self._release_conn(conn)
+            conn.on_disconnected(exception=e, err_msg=str(e.args))
+            return
+
+        if not reply_msg.is_valid():
+            self._release_conn(conn)
+            conn.on_disconnected(err_msg=reply_msg.err)
+            return
+
+        self._release_conn(conn)
+        return reply_msg
 
     def close(self):
-        """Close the connection to server, not off server"""
-        if self._tcp_client is not None:
-            self._tcp_client.close()
-
-    def _process_disconnect(self, msg=""):
-        m = "WuKongQueue server-addr:%s is disconnected" % str(self.server_addr)
-        m = msg if msg else m
-        if self._silence_err:
-            self._logger.warning(m)
-        else:
-            raise Disconnected(m)
-
-    def _do_authenticate(self, auth_key) -> bool:
-        if auth_key is None:
-            return True
-
-        wukong_pkg = self._talk_with_svr(
-            wrap_queue_msg(
-                queue_cmd=QUEUE_AUTH_KEY, args={"auth_key": auth_key}
-            )
-        )
-
-        if not wukong_pkg.is_valid():
-            self._process_disconnect()
-            return False
-        return wukong_pkg.raw_data == QUEUE_OK
-
-    def _talk_with_svr(self, msg) -> WukongPkg:
-        if not self.socket_commu_lock.acquire(blocking=False):
-            self._tcp_client.close()
-            raise CannotConcurrentCallBlockMethod
-        self._tcp_client.write(msg)
-        ret = self._tcp_client.read()
-        # There is no need to use try to ensure the lock is closed,
-        # because the client's method does not allow multi-threaded calls,
-        # and the program should not continue to run when there is an exception
-        # it maybe a bug, just report it ~!
-        self.socket_commu_lock.release()
-        return ret
+        """close the connection to server, not off server"""
+        if self.connection:
+            self.connection_pool.release_connection(self.connection)
+            self.connection = None
+        if not self._is_new_pool:
+            self.connection_pool.close()
 
     def helper(self):
         """If the place client created isn't same with using,
-        you can use helper to close client easier, like this:
+        you may use helper to close client easier, like this:
         ```
-        with svr.helper():
+        with client.helper():
             ...
         # this is equivalent to use below:
-        with svr:
+        with client:
             ...
         ```
         """
         return helper(self)
+
+    def __repr__(self):
+        return "%s<pool:%s>" % (type(self).__name__, self.connection_pool)
 
     def __enter__(self):
         return self

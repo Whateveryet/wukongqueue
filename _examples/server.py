@@ -11,10 +11,10 @@ max_size = 2
 
 
 def start_server(h, p):
-    with WuKongQueue(h, p, max_size=max_size) as svr:
+    with WuKongQueue(h, p, maxsize=max_size) as svr:
         while True:
             time.sleep(3)
-            print('client number:', svr.clients)
+            print('client number:', svr.connected_clients())
 
 
 if __name__ == '__main__':

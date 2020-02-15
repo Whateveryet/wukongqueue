@@ -9,17 +9,16 @@ port = 6666
 
 
 def start_client(h, p):
-    # `pre_connect` allow to initialize the client although svr is not
-    # ready yet.
-    # `auto_reconnect` will automatically connect to server while execute
-    client = WuKongQueueClient(h, p, auto_reconnect=True, pre_connect=True)
+    client = WuKongQueueClient(h, p)
     with client.helper():
         print('server addr', client.server_addr)
         print('is client connected to server?', client.connected())
 
         for i in range(10):
             if client.connected():
+                print('client is already connected to server')
                 break
+            print('please start server~')
             time.sleep(1)
 
         client.put(item='1', block=True)
