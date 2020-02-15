@@ -143,7 +143,7 @@ class ClientTests(TestCase):
             with svr:
                 client.full()
             self.assertRaises(ConnectionError, client.full)
-            self.assertRaises(ConnectionError, client.full)
+            # self.assertRaises(ConnectionError, client.full)
             svr.run()
 
         # with client:
