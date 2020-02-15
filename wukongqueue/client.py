@@ -52,9 +52,19 @@ class WuKongQueueClient:
         connection is health, see the default value in wukongqueue.Connection
         class
 
+        retry_on_disconnect: The default is false. if set true, the operation in
+        progress will be retried on disconnect, otherwise, if also not the
+        health check time, it will decide how to process error according to
+        arg `silence_err`
+
         single_connection_client: use connection pool with no limitation to
         connections by default, you can use only single connection by set
         this arg to True
+
+        socket_keepalive: whether to open socket keepalive
+
+        socket_keepalive_options: if set `socket_keepalive` is true, this arg
+        will be set up by socket.setsockopt(socket.IPPROTO_TCP, k, v)
 
         encoding: unified encoding standard
 
@@ -90,10 +100,20 @@ class WuKongQueueClient:
                 "logger": self._logger,
                 "socket_timeout": kwargs.pop("socket_timeout", None),
                 "max_connections": kwargs.pop("max_connections", 0),
+                "retry_on_disconnect": kwargs.pop("retry_on_disconnect", False),
                 "encoding": encoding,
                 "encoding_err": encoding_err,
             }
 
+            if kwargs.pop("socket_keepalive", False) is True:
+                connection_kwargs.update(
+                    {
+                        "socket_keepalive": True,
+                        "socket_keepalive_options": kwargs.pop(
+                            "socket_keepalive_options", None
+                        ),
+                    }
+                )
             self._is_new_pool = False
             connection_pool = ConnectionPool(**connection_kwargs)
         else:
