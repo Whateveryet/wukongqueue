@@ -22,8 +22,6 @@ install:
 - pip install codecov
 script:
 #- coverage run tests/server_tests.py -v
-- ifconfig
-- ipaddr
 - coverage run tests/client_tests2.py -v
 #- coverage run tests/client_tests.py -v
 #- coverage report -m
