@@ -139,16 +139,13 @@ class ClientTests(TestCase):
                                    port=mport,
                                    log_level=logging.WARNING,
                                    check_health_interval=2)
-        with client:
-            with svr:
-                pass
-                # client.full()
-            # self.assertRaises(ConnectionError, client.full)
-            # self.assertRaises(ConnectionError, client.full)
-            svr.run()
 
-        # with client:
-        #     with svr:
+
+        with client:
+            for i in range(3):
+                svr.close()
+                time.sleep(0.5)
+                svr.run()
         #
         #     self.assertRaises(ConnectionError, client.full)
         #     self.assertRaises(ConnectionError, client.full)
