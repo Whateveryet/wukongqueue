@@ -34,8 +34,8 @@ class Connection:
         silence_err=True,
         log_level=logging.DEBUG,
         logger=None,
-        # encoding=None,
-        # encoding_err=None,
+        encoding=None,
+        encoding_err=None,
     ):
         # validate these args outside.
         self.server_addr = (host, port)
