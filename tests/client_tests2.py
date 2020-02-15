@@ -145,7 +145,10 @@ class ClientTests(TestCase):
             for i in range(3):
                 svr.close()
                 time.sleep(0.5)
-                svr.run()
+                try:
+                    svr.run()
+                except:
+                    print('errored', i)
         #
         #     self.assertRaises(ConnectionError, client.full)
         #     self.assertRaises(ConnectionError, client.full)
