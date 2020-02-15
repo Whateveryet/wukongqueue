@@ -132,7 +132,7 @@ class ClientTests(TestCase):
                              specific=True,
                              dont_change_port=True,
                              max_size=max_size,
-                             log_level=logging.WARNING)
+                             log_level=logging.DEBUG)
 
 
         client = WuKongQueueClient(host=host,
@@ -140,16 +140,14 @@ class ClientTests(TestCase):
                                    log_level=logging.WARNING,
                                    check_health_interval=2)
 
-
+        print(version())
         with client:
             for i in range(3):
-                svr.close()
-                time.sleep(0.5)
-                try:
-                    svr.run()
-                except:
-                    print('errored', i)
-        #
+                with svr:
+                    pass
+                svr.run()
+
+            svr.close()
         #     self.assertRaises(ConnectionError, client.full)
         #     self.assertRaises(ConnectionError, client.full)
         #     svr.run()
