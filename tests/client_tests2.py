@@ -49,7 +49,7 @@ def new_svr(host=host, port=default_port, specific=False, auth=None,
 class ClientTests(TestCase):
     # Can't call block method such as join/put(block=True) concurrently within
     # single connection.
-    def atest_concurrent_call_block_method(self):
+    def test_concurrent_call_block_method(self):
         max_size = 1
         svr, mport = new_svr(max_size=max_size, log_level=logging.FATAL)
 
@@ -86,7 +86,7 @@ class ClientTests(TestCase):
                 client.task_done() and client.realtime_qsize()
                 client.connected_clients()
 
-    def atest_connection_pool(self):
+    def test_connection_pool(self):
         max_size = 0
         svr, mport = new_svr(max_size=max_size, log_level=logging.FATAL)
         with svr.helper():
@@ -127,36 +127,31 @@ class ClientTests(TestCase):
 
                 time.sleep(2)
 
-    def test_check_health(self):
-        svr, mport = new_svr(port=_check_health_port,
-                             specific=True,
-                             dont_change_port=True,
-                             max_size=max_size,
-                             log_level=logging.DEBUG)
-
-
-        client = WuKongQueueClient(host=host,
-                                   port=mport,
-                                   log_level=logging.WARNING,
-                                   check_health_interval=2)
-
-        print(version())
-        with client:
-            for i in range(3):
-                with svr:
-                    pass
-                svr.run()
-
-            svr.close()
-        #     self.assertRaises(ConnectionError, client.full)
-        #     self.assertRaises(ConnectionError, client.full)
-        #     svr.run()
-        #     time.sleep(1)
-        #     # it not health check time
-        #     self.assertRaises(ConnectionError, client.full)
-        #     time.sleep(1)
-        #     # health check time is up, then try recover connection
-        #     client.full()
+    # def test_check_health(self):
+    #     svr, mport = new_svr(port=_check_health_port,
+    #                          specific=True,
+    #                          dont_change_port=True,
+    #                          max_size=max_size,
+    #                          log_level=logging.WARNING)
+    #
+    #
+    #     client = WuKongQueueClient(host=host,
+    #                                port=mport,
+    #                                log_level=logging.WARNING,
+    #                                check_health_interval=2)
+    #
+    #     with client:
+    #         with svr:
+    #             client.full()
+    #         self.assertRaises(ConnectionError, client.full)
+    #         self.assertRaises(ConnectionError, client.full)
+    #         svr.run()
+    #         time.sleep(1)
+    #         # it not health check time
+    #         self.assertRaises(ConnectionError, client.full)
+    #         time.sleep(1)
+    #         # health check time is up, then try recover connection
+    #         client.full()
 
 
 if __name__ == '__main__':
