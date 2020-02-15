@@ -141,12 +141,14 @@ class ClientTests(TestCase):
                                    check_health_interval=2)
         with client:
             with svr:
-                pass
+                client.full()
+            self.assertRaises(ConnectionError, client.full)
+            self.assertRaises(ConnectionError, client.full)
             svr.run()
-        
+
         # with client:
         #     with svr:
-        #         client.full()
+        #
         #     self.assertRaises(ConnectionError, client.full)
         #     self.assertRaises(ConnectionError, client.full)
         #     svr.run()
