@@ -133,13 +133,17 @@ class ClientTests(TestCase):
                              dont_change_port=True,
                              max_size=max_size,
                              log_level=logging.WARNING)
-        svr.close()
-        svr.run()
 
-        # client = WuKongQueueClient(host=host,
-        #                            port=mport,
-        #                            log_level=logging.WARNING,
-        #                            check_health_interval=2)
+
+        client = WuKongQueueClient(host=host,
+                                   port=mport,
+                                   log_level=logging.WARNING,
+                                   check_health_interval=2)
+        with client:
+            with svr:
+                pass
+            svr.run()
+        
         # with client:
         #     with svr:
         #         client.full()
