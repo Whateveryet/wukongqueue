@@ -6,6 +6,6 @@ from .exceptions import *
 from .server import WuKongQueue
 from .utils import new_thread
 
-__version__ = "0.0.6a2"
+__version__ = "0.0.6"
 
 version = lambda: __version__

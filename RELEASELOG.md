@@ -1,5 +1,5 @@
 ## Release log
-#### v0.0.6a2
+#### v0.0.6
 this is a bigger update
 * refactor client.py
     * Revoke WuKongQueueClient class's arg `auto_reconnect`,`pre_conn`, set 
