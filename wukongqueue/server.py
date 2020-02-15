@@ -145,8 +145,11 @@ class WuKongQueue:
             for client_stat in self.client_stats.values():
                 client_stat.conn.close()
             self.client_stats.clear()
+
         self._logger.debug(
-            "<WuKongQueue listened {} was closed>".format(self.addr)
+            "<WuKongQueue [{}] listened {} was closed>".format(
+                self.name, self.addr
+            )
         )
 
     def __repr__(self):
