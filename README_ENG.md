@@ -83,6 +83,13 @@ clientA: all task done!
 clientB all task done! (same as clientA last print)
 ```
 
+##### Connection Pool
+```python
+from wukongqueue import ConnectionPool,WuKongQueueClient
+pool = ConnectionPool(host="localhost", port=2020, max_connections=3)
+client = WuKongQueueClient(connection_pool=pool)
+```
+
 [more examples](https://github.com/chaseSpace/wukongqueue/blob/master/_examples)
 
 ## TODO

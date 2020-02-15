@@ -127,6 +127,7 @@ class ClientTests(TestCase):
 
                 time.sleep(2)
 
+    # this test can not pass travis test, I don't know why
     # def test_check_health(self):
     #     svr, mport = new_svr(port=_check_health_port,
     #                          specific=True,

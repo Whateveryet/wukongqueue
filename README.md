@@ -82,6 +82,12 @@ clientA: all task done! (马上)
 clientB all task done! (与clientA的all task done同步)
 ```
 
+#### 连接池
+```python
+from wukongqueue import ConnectionPool,WuKongQueueClient
+pool = ConnectionPool(host="localhost", port=2020, max_connections=3)
+client = WuKongQueueClient(connection_pool=pool)
+```
 
 [更多例子](https://github.com/chaseSpace/wukongqueue/blob/master/_examples)
 

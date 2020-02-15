@@ -1,12 +1,12 @@
 ## Release log
 #### v0.0.6a2
 this is a bigger update
-* Revoke WuKongQueueClient class's arg `auto_reconnect`,`pre_conn`, treat 
-reconnection as default
 * refactor client.py
-* rewrite tcp stream parse protocol(read/write)
+    * Revoke WuKongQueueClient class's arg `auto_reconnect`,`pre_conn`, set 
+    reconnection as default
 * add connection pool
-* fix some bugs
+* rewrite tcp stream parse protocol(read/write)
+* fixed some bugs
 
 #### v0.0.6a1
 * Support all python basic type
